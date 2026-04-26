@@ -199,7 +199,7 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
         </div>
 
         {(!quizModules || quizModules.length === 0) ? (
-          <p className="text-sm text-stone-400 py-2">No quiz modules yet. Add questions to learn what she's in the mood for.</p>
+          <p className="text-sm text-stone-400 py-2">{"No quiz modules yet. Add questions to learn what she's in the mood for."}</p>
         ) : (
           <div className="space-y-2">
             {quizModules.map((mod) => {

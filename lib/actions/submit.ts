@@ -96,7 +96,7 @@ export async function submitSelection(
   const toEmail = process.env.CREATOR_EMAIL ?? 'cykn128@gmail.com'
 
   await resend.emails.send({
-    from: 'Date Night <hello@datenight.love>',
+    from: 'Date Night <onboarding@resend.dev>',
     to: toEmail,
     subject: `She chose! — ${flow?.title ?? 'Date Night'}`,
     react: SelectionEmail({
