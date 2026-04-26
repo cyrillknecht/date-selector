@@ -32,16 +32,11 @@ export function DecisionStep({
   const [selected, setSelected] = useState<string[]>(initialSelection)
 
   function toggle(id: string) {
-    setSelected((prev) => {
-      let next: string[]
-      if (allowMultiSelect) {
-        next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      } else {
-        next = prev.includes(id) ? [] : [id]
-      }
-      onAnswer(next)
-      return next
-    })
+    const next = allowMultiSelect
+      ? selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
+      : selected.includes(id) ? [] : [id]
+    setSelected(next)
+    onAnswer(next)
   }
 
   return (
