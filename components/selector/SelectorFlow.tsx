@@ -6,6 +6,8 @@ import { ArrowRight, ArrowLeft, Heart, Send, Loader2 } from 'lucide-react'
 import { DecisionStep } from './DecisionStep'
 import { QuizStep } from './QuizStep'
 import { ConfettiBlast } from './ConfettiBlast'
+import { PolaroidBackground } from './PolaroidBackground'
+import { EasterEgg } from './EasterEgg'
 import { submitSelection } from '@/lib/actions/submit'
 import { t } from '@/i18n/selector'
 
@@ -117,12 +119,13 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-stone-50">
+        <PolaroidBackground />
         <ConfettiBlast />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center max-w-sm space-y-4"
+          className="text-center max-w-sm space-y-4 relative z-10"
         >
           <div className="text-6xl mb-6">💕</div>
           <h1 className="text-2xl font-serif font-semibold text-stone-900">
@@ -140,7 +143,9 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
   const progress = isIntro ? 0 : isMessageStep ? 100 : Math.round(((step + 1) / (totalModules + 1)) * 100)
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-stone-50">
+      <PolaroidBackground />
+      <EasterEgg />
       {/* Progress bar */}
       {!isIntro && (
         <div className="fixed top-0 left-0 right-0 h-1 bg-stone-100 z-10">
@@ -152,7 +157,7 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
         </div>
       )}
 
-      <div className="flex-1 flex flex-col justify-center px-5 py-12 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col justify-center px-5 py-12 max-w-2xl mx-auto w-full relative z-10">
         <AnimatePresence mode="wait" custom={direction}>
           {isIntro && (
             <motion.div
