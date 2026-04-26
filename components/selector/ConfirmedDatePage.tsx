@@ -1,10 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin, ExternalLink } from 'lucide-react'
 import { t } from '@/i18n/selector'
 import { PolaroidBackground } from './PolaroidBackground'
 import { EasterEgg } from './EasterEgg'
+import { CountdownTimer } from './CountdownTimer'
+import { CalendarLinks } from './CalendarLinks'
 
 type ConfirmedCard = {
   id: string
@@ -14,6 +16,7 @@ type ConfirmedCard = {
   price_range: string | null
   mood_tags: string[]
   photo_urls: string[]
+  url?: string | null
 }
 
 interface ConfirmedDatePageProps {
@@ -41,6 +44,8 @@ export function ConfirmedDatePage({
   confirmedAt,
   meetingPoint,
 }: ConfirmedDatePageProps) {
+  const displayLocation = meetingPoint ?? confirmedCard.location
+
   return (
     <div className="relative min-h-dvh bg-stone-50 flex flex-col items-center justify-center px-4 py-16 overflow-hidden">
       <PolaroidBackground />
@@ -55,6 +60,11 @@ export function ConfirmedDatePage({
         <div className="text-center space-y-2">
           <h1 className="font-serif text-3xl font-bold text-stone-900">{t.confirmedHeading}</h1>
           <p className="text-stone-500 text-sm">{t.confirmedSub}</p>
+        </div>
+
+        {/* Countdown */}
+        <div className="rounded-2xl border border-rose-100 bg-white p-4">
+          <CountdownTimer targetDate={confirmedAt} />
         </div>
 
         {/* Confirmed card */}
@@ -88,6 +98,18 @@ export function ConfirmedDatePage({
                 ))}
               </div>
             )}
+
+            {confirmedCard.url && (
+              <a
+                href={confirmedCard.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-rose-500 hover:underline"
+              >
+                <ExternalLink className="size-3.5" />
+                Mehr Info / Maps
+              </a>
+            )}
           </div>
         </div>
 
@@ -103,20 +125,26 @@ export function ConfirmedDatePage({
             </div>
           </div>
 
-          {(meetingPoint || confirmedCard.location) && (
+          {displayLocation && (
             <div className="flex items-start gap-3">
               <div className="size-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
                 <MapPin className="size-4 text-rose-500" />
               </div>
               <div>
                 <p className="text-xs text-stone-400 font-medium uppercase tracking-wide">{t.confirmedWhere}</p>
-                <p className="text-sm text-stone-800 font-medium mt-0.5">
-                  {meetingPoint ?? confirmedCard.location}
-                </p>
+                <p className="text-sm text-stone-800 font-medium mt-0.5">{displayLocation}</p>
               </div>
             </div>
           )}
         </div>
+
+        {/* Calendar links */}
+        <CalendarLinks
+          title={confirmedCard.title}
+          startIso={confirmedAt}
+          location={displayLocation}
+          description={confirmedCard.description}
+        />
 
         {/* Outro message */}
         <div className="text-center">

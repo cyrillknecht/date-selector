@@ -2,8 +2,14 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Check, MapPin, DollarSign, ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, MapPin, DollarSign, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { t } from '@/i18n/selector'
+
+const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v']
+function isVideo(url: string) {
+  const lower = url.toLowerCase().split('?')[0]
+  return VIDEO_EXTS.some((ext) => lower.endsWith(ext))
+}
 
 type Card = {
   id: string
@@ -13,6 +19,7 @@ type Card = {
   price_range: string | null
   mood_tags: string[]
   photo_urls: string[]
+  url?: string | null
 }
 
 interface DecisionStepProps {
@@ -70,6 +77,20 @@ function CardExpandPanel({ card }: { card: Card }) {
           ))}
         </div>
       )}
+
+      {/* Link */}
+      {card.url && (
+        <a
+          href={card.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-rose-500 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ExternalLink className="size-3" />
+          Mehr Info
+        </a>
+      )}
     </div>
   )
 }
@@ -112,7 +133,7 @@ export function DecisionStep({
           const isSelected = selected.includes(card.id)
           const isExpanded = expandedCardId === card.id
           const isHovered = hoveredCardId === card.id
-          const hasExtra = card.description || card.location || card.price_range || card.mood_tags.length > 0 || card.photo_urls.length > 1
+          const hasExtra = card.description || card.location || card.price_range || card.url || card.mood_tags.length > 0 || card.photo_urls.length > 1
 
           return (
             <motion.div
@@ -135,12 +156,23 @@ export function DecisionStep({
                 {/* Photo */}
                 <div className="aspect-[4/3] bg-stone-100 relative">
                   {card.photo_urls[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={card.photo_urls[0]}
-                      alt={card.title}
-                      className="w-full h-full object-cover"
-                    />
+                    isVideo(card.photo_urls[0]) ? (
+                      <video
+                        src={card.photo_urls[0]}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        loop
+                        autoPlay
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={card.photo_urls[0]}
+                        alt={card.title}
+                        className="w-full h-full object-cover"
+                      />
+                    )
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="text-4xl">💕</span>

@@ -35,6 +35,7 @@ export async function updateCard(cardId: string, moduleId: string, flowId: strin
       description: (formData.get('description') as string) || null,
       location: (formData.get('location') as string) || null,
       price_range: (formData.get('price_range') as string) || null,
+      url: (formData.get('url') as string) || null,
       photo_urls,
       mood_tags,
     })

@@ -21,7 +21,7 @@ export default async function SelectorPage({ params }: { params: Promise<{ token
   if (flow.confirmed_card_id && flow.confirmed_at) {
     const { data: confirmedCard } = await supabase
       .from('cards')
-      .select('id, title, description, location, price_range, mood_tags, photo_urls')
+      .select('id, title, description, location, price_range, mood_tags, photo_urls, url')
       .eq('id', flow.confirmed_card_id)
       .single()
 
@@ -59,7 +59,7 @@ export default async function SelectorPage({ params }: { params: Promise<{ token
     decisionIds.length > 0
       ? supabase
           .from('cards')
-          .select('id, decision_module_id, title, description, location, price_range, mood_tags, photo_urls, position')
+          .select('id, decision_module_id, title, description, location, price_range, mood_tags, photo_urls, url, position')
           .in('decision_module_id', decisionIds)
           .order('position')
       : Promise.resolve({ data: [] }),

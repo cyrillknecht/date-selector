@@ -136,7 +136,11 @@ export default async function DecisionModuleEditorPage({
                     <Textarea name="description" defaultValue={card.description ?? ''} rows={2} placeholder="A short description..." />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">
-                    <Label>Photos</Label>
+                    <Label>Link <span className="text-stone-400 font-normal">(optional — restaurant website, Google Maps…)</span></Label>
+                    <Input name="url" type="url" defaultValue={card.url ?? ''} placeholder="https://maps.google.com/…" />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label>Photos &amp; Videos</Label>
                     <PhotoUploader initialUrls={card.photo_urls} name="photo_urls" />
                   </div>
                   <div className="sm:col-span-2 flex justify-end">
