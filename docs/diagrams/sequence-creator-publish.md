@@ -12,60 +12,46 @@ sequenceDiagram
   participant DB as Supabase DB
   participant ST as Supabase Storage
 
-  C->>B: Navigates to /creator/flows/new
-  B->>N: POST /api/flows { title, intro_message, outro_message }
-  N->>N: Validate JWT (middleware)
+  C->>B: Navigates to /creator/dashboard
+  C->>B: Submits "New Flow" form
+  B->>N: Server Action — createFlow()
+  N->>N: Auth check via SSR cookie
   N->>DB: INSERT flow { status: 'draft', ... }
   DB-->>N: flow.id
-  N-->>B: 201 { id: flow.id }
-  B->>B: Redirect to /creator/flows/:id
+  N-->>B: redirect to /creator/flows/:id
 
   loop For each module added
-    C->>B: Adds Decision or Quiz module
-    B->>N: POST /api/flows/:id/modules { type, position, prompt }
+    C->>B: Clicks "Add Decision Module" or "Add Quiz Module"
+    B->>N: Server Action — createDecisionModule() / createQuizModule()
     N->>DB: INSERT decision_module or quiz_module
     DB-->>N: module.id
-    N-->>B: 201 { id: module.id }
+    N-->>B: revalidatePath (page refreshes)
   end
 
-  loop For each card added to a Decision Module
-    C->>B: Fills card fields (title, description, tags, price range)
-    C->>B: Selects photo(s) from local disk
-
-    B->>N: POST /api/upload { filename, contentType }
-    N->>N: Validate JWT
-    N->>ST: Generate signed upload URL (expires: 60s)
-    ST-->>N: { signedUrl, publicUrl }
-    N-->>B: { signedUrl, publicUrl }
-
-    B->>ST: PUT photo file directly to signedUrl
-    ST-->>B: 200 OK
-
-    B->>N: POST /api/flows/:id/modules/:moduleId/cards { ...fields, photoUrls: [publicUrl] }
-    N->>DB: INSERT card
-    DB-->>N: card.id
-    N-->>B: 201 { id: card.id }
+  loop For each card added
+    C->>B: Fills card fields, uploads photos via PhotoUploader
+    B->>N: POST /api/upload (multipart)
+    N->>N: Validate session cookie
+    N->>ST: Upload file to date-photos bucket (service role)
+    ST-->>N: publicUrl
+    N-->>B: { url: publicUrl }
+    C->>B: Submits "Save card" form
+    B->>N: Server Action — updateCard() with photo_urls
+    N->>DB: UPDATE card
+    DB-->>N: OK
+    N-->>B: revalidatePath
   end
 
-  C->>B: Reorders modules via drag-and-drop
-  B->>N: PATCH /api/flows/:id/modules/order { orderedIds: [...] }
-  N->>DB: UPDATE position on each module
-  DB-->>N: OK
-  N-->>B: 200
-
-  C->>B: Clicks "Preview" — opens preview modal
-  Note over B: Selector experience renders in an iframe<br/>using the draft flow data (creator session bypasses published check)
-
-  C->>B: Satisfied — clicks "Publish"
-  B->>N: POST /api/flows/:id/publish
-  N->>N: Validate JWT
+  C->>B: Clicks "Publish"
+  B->>N: Server Action — publishFlow()
   N->>N: Generate crypto.randomUUID() as token
   N->>DB: UPDATE flow SET status = 'published', token = :token
   DB-->>N: OK
-  N-->>B: 200 { shareUrl: "https://app.com/:token" }
+  N-->>B: revalidatePath (share URL appears)
 
-  B->>B: Share modal opens with URL + QR code
-  C->>C: Copies link and sends to girlfriend
+  C->>B: Clicks "Copy link"
+  B->>B: navigator.clipboard.writeText(shareUrl)
+  C->>C: Pastes link and sends to girlfriend
 ```
 
 ---

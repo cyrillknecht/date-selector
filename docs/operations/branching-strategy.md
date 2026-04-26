@@ -62,10 +62,9 @@ Examples:
 5. Self-review on the preview URL (especially for UI/animation changes)
 
 6. Merge to main (squash merge preferred for clean history)
-   - CI re-runs on main
-   - If /infra changed: terraform apply runs
-   - Supabase migrations apply
-   - Vercel deploys to production (< 60 seconds)
+   - deploy.yml runs: lint → typecheck → test → supabase migrations → vercel deploy --prod
+   - If /infra changed: terraform apply also runs
+   - Production live within ~2 minutes of merge
 
 7. Delete branch after merge
 ```

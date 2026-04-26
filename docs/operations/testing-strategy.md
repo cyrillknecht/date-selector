@@ -142,27 +142,35 @@ E2E tests run in CI on PRs targeting `main`. They are slow (~60–90s) and are t
 
 | Pipeline step | Tests run |
 |---|---|
-| PR opened / push to branch | Unit + Component + Integration |
-| PR targeting `main` | All of the above + E2E |
-| Post-deploy (production) | Smoke test via Playwright (selector URL loads, returns 200) |
+| Push to any non-main branch | Lint + typecheck + Vitest (unit + component) |
+| Push to `main` (deploy pipeline) | Same as above, then supabase migrations, then `vercel deploy --prod` |
+| Playwright E2E | Not in CI — run manually with `TEST_SELECTOR_TOKEN` env var pointing to a seeded flow |
+
+---
+
+## Current Test Coverage
+
+| Layer | Status | Location |
+|---|---|---|
+| Unit — `lib/utils.ts` (`cn`) | ✅ 6 tests | `__tests__/lib/utils.test.ts` |
+| Unit — `lib/errors.ts` (`AppError`, `withErrorHandler`) | ✅ 7 tests | `__tests__/lib/errors.test.ts` |
+| Component — `DecisionStep` | ✅ 9 tests | `__tests__/components/selector/DecisionStep.test.tsx` |
+| Component — `QuizStep` | ✅ 6 tests | `__tests__/components/selector/QuizStep.test.tsx` |
+| Integration (API routes vs real DB) | ❌ Not implemented | — |
+| E2E — creator auth redirects | ✅ skeleton | `e2e/creator.spec.ts` |
+| E2E — selector happy path | ✅ gated by `TEST_SELECTOR_TOKEN` | `e2e/selector.spec.ts` |
 
 ---
 
 ## Running Tests Locally
 
 ```bash
-# Unit + Component
+# Unit + Component (no dependencies)
 pnpm test
 
-# Integration (requires local Supabase running)
-supabase start
-pnpm test:integration
+# Single file
+pnpm test __tests__/lib/utils.test.ts
 
-# E2E (requires dev server + local Supabase)
-supabase start
-pnpm dev &
-pnpm test:e2e
-
-# All tests
-pnpm test:all
+# E2E (requires dev server running + a published flow token)
+TEST_SELECTOR_TOKEN=<token> pnpm test:e2e
 ```

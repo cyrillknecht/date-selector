@@ -63,10 +63,9 @@ graph TB
   C -- HTTPS, signed URL --> STORE
 
   REPO -- push to main --> ACTIONS
-  ACTIONS -- deploy trigger --> Vercel
+  ACTIONS -- vercel deploy --prod --> Vercel
   ACTIONS -- supabase db push --> PG
-  ACTIONS -- terraform apply --> TFC
-  TFC -- Vercel API --> Vercel
+  ACTIONS -- terraform apply (infra/ changes only) --> TFC
   TFC -- Supabase Mgmt API --> Supabase
 ```
 
@@ -76,9 +75,9 @@ graph TB
 
 | Environment | Vercel Project | Supabase Project | Branch |
 |---|---|---|---|
-| Production | `date-selector` (prod) | `date-selector-prod` | `main` |
-| Preview | Auto per PR | `date-selector-prod` (read-heavy; no destructive ops) | any PR branch |
-| Local dev | `localhost:3000` | Supabase local (Docker) | any feature branch |
+| Production | `date-selector-selector` (`prj_nnA2v8ersWQnDJ651F7k0WOl3Qzx`) | `htztpctkkjfyobrbhdld` | `main` |
+| Preview | Auto per PR via Vercel GitHub integration | `htztpctkkjfyobrbhdld` (read-heavy; no destructive ops) | any PR branch |
+| Local dev | `localhost:3000` | Supabase local (Docker) — `supabase start` | any feature branch |
 
 ---
 
