@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion, type Transition } from 'framer-motion'
 import {
   Check, MapPin, DollarSign,
   ChevronDown, ChevronLeft, ChevronRight, ExternalLink,
@@ -162,7 +162,7 @@ const expandVariants = {
   expanded: { opacity: 1, height: 'auto' },
 }
 
-const expandTransition = {
+const expandTransition: Transition = {
   height: { type: 'spring', stiffness: 300, damping: 32, mass: 0.8 },
   opacity: { duration: 0.15, ease: 'easeOut' },
 }
