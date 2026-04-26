@@ -150,85 +150,161 @@ Supabase Pro includes daily backups. For additional protection:
 
 All prices in USD/month unless noted. Based on current (2026) public pricing.
 
+The cost model is split into **phases** because the architecture has to change at certain scales — you cannot simply pay more and stay on the same stack. Each phase has a different infrastructure footprint.
+
 ---
 
-### Assumptions per active user/month
+### Per-user assumptions (monthly, active user)
+
 | Metric | Estimate | Basis |
 |---|---|---|
-| Storage added | ~7 MB | 2–3 flows/year × 5 cards × 2 photos avg at 2 MB each |
-| Emails sent | ~3 | ~1 selection per published flow |
-| DB compute | negligible | Serverless; covered by Supabase plan |
-| Bandwidth | ~20 MB | Selector page loads (photos served from Storage CDN) |
+| Storage added | ~7 MB | 2–3 flows/year × 5 cards × 2 photos at ~2 MB each |
+| Emails sent | ~3 | ~1 selection notification per published flow |
+| DB connections (peak) | 1–2 concurrent | Serverless function per request |
+| Outbound bandwidth | ~20 MB | Selector page loads with photos/video thumbnails |
 
 ---
 
-### Fixed infrastructure baseline
+### Phase 1 — Launch (0–1,000 users)
+**Current architecture. No changes needed.**
 
-These costs are constant regardless of user count once you move off free tiers:
+| Service | Cost |
+|---|---|
+| Vercel Pro | $20 |
+| Supabase Pro | $25 |
+| Resend (≤50k emails) | $20 |
+| Upstash Redis (rate limiting) | $10 |
+| Sentry Team | $26 |
+| Domain | $1 |
+| **Total** | **~$102/mo** |
 
-| Service | Free tier | Paid tier | Trigger to upgrade |
-|---|---|---|---|
-| Vercel | 100 GB bandwidth | Pro $20/mo (1 TB, no function limits) | Custom domain, >100 GB/mo bandwidth, or SLA needed |
-| Supabase | 500 MB DB, 1 GB storage, pauses after 1 week inactivity | Pro $25/mo (8 GB DB, 100 GB storage, no pause, daily backups) | Any paying customer (free tier pausing will cause outages) |
-| Resend | 3,000 emails/mo | Scale $20/mo (50k emails) | ~1,000 active users/mo |
-| Upstash Redis | 10k commands/day | Pay-as-you-go ~$10/mo | When rate limiting is added |
-| Sentry | 5k errors/mo | Team $26/mo | First paying customer |
-| Domain | — | ~$1.25/mo ($15/yr) | Always |
-| Terraform Cloud | Free ≤500 resources | — | Never at this scale |
-| GitHub Actions | 2,000 min/mo (private) | — | Never at this scale |
-
-**Minimum viable paid infrastructure: ~$82/month**
-(Vercel Pro + Supabase Pro + Resend Scale + Upstash + Sentry + domain)
+**What to do now:**
+- Upgrade Supabase to Pro immediately (free tier pauses after 7 days inactivity — fatal for paying customers)
+- Enable Supabase's built-in **connection pooler (Supavisor)** in transaction mode from day one — Vercel serverless functions each open a new DB connection on every invocation; the default 60-connection limit on Pro will blow up under modest traffic without pooling
 
 ---
 
-### Cost at scale
+### Phase 2 — Early growth (1,000–10,000 users)
+**Current architecture still holds. Add caching and async email.**
 
-| Users | Storage total | Emails/mo | Infra cost | Cost per user |
+New problems that emerge:
+- **DB connection churn**: With hundreds of concurrent Vercel function invocations, each opening a connection, Supavisor in transaction mode is now mandatory (not optional). It multiplexes thousands of app connections into a small pool of real DB connections.
+- **Email latency**: Sending email synchronously inside `submitSelection` adds 200–500ms to the selector's submission response. A failed Resend API call silently loses the notification.
+- **No caching**: Every selector page load hits Supabase for the flow data. A popular flow (e.g. someone shares it to a group) causes a read spike.
+
+**What to add:**
+
+| Addition | Why | Cost |
+|---|---|---|
+| Supavisor connection pooler | Prevents connection exhaustion | Included in Supabase Pro |
+| Inngest or Trigger.dev | Move email sending to background job queue; retries on failure | $0–25 |
+| Upstash Redis (flow cache) | Cache published flow data with 60s TTL; reduces DB reads ~80% | Already paying |
+
+| Service | Cost |
+|---|---|
+| Phase 1 baseline | $102 |
+| Inngest (background jobs) | $25 |
+| Resend (10k–50k emails) | $20–50 |
+| **Total** | **~$127–177/mo** |
+
+---
+
+### Phase 3 — Scale (10,000–50,000 users)
+**Architecture changes required. Current Supabase Pro instance hits limits.**
+
+New problems:
+- **Supabase shared compute**: On Pro, your database runs on a shared server alongside other customers' projects. At 10k+ active users generating concurrent queries, you'll see query latency spikes and may hit rate limits from Supabase's shared infrastructure.
+- **Media delivery**: Supabase Storage CDN works, but at 50k users streaming video and loading photos, egress costs accumulate and latency to certain regions degrades. Supabase Storage charges $0.09/GB egress above the included allowance.
+- **Vercel function cold starts**: High-traffic pages (popular flow tokens) hit cold-start latency. Consider Next.js `export const runtime = 'edge'` for the selector page route, which eliminates cold starts at the cost of losing Node.js APIs.
+
+**What to change:**
+
+| Change | Why | Cost delta |
+|---|---|---|
+| Supabase Pro → **Dedicated instance** ($200–400/mo) | Dedicated compute, configurable connection limits, read replicas available | +$175–375 |
+| Supabase Storage → **Cloudflare R2 + CDN** | Zero egress fees, global edge, cheaper at scale. Only `app/api/upload/route.ts` changes. | ~$20–50 (storage only; egress free) |
+| Add **Cloudflare** in front of Vercel | Edge caching for static assets, DDoS protection, hides Vercel cold starts for cached pages | $20 (Pro plan) |
+| Resend volume tier | 150k emails/mo | $150 |
+
+| Service | Cost |
+|---|---|
+| Vercel Pro | $20 |
+| Supabase Dedicated | $300 |
+| Cloudflare Pro + R2 | $40 |
+| Resend 150k | $150 |
+| Upstash Redis | $50 |
+| Inngest | $50 |
+| Sentry Business | $80 |
+| Domain | $1 |
+| **Total** | **~$691/mo** |
+
+This is a real jump from Phase 2. The Supabase Dedicated instance is the main driver.
+
+---
+
+### Phase 4 — High scale (50,000–200,000 users)
+**Possible re-platform. Cost efficiency requires owning more of the stack.**
+
+At this point Vercel's per-function pricing and Supabase's managed overhead start to look expensive relative to what you're paying. Options:
+
+**Option A — Stay managed, scale up**
+- Supabase Dedicated with read replica (+$100–200/mo)
+- Vercel Team or Enterprise for higher limits
+- Total: ~$900–1,200/mo
+- Pros: no ops burden
+- Cons: less control, higher cost per unit
+
+**Option B — Partially self-host**
+- Move to **Neon** (serverless Postgres) or **self-managed Postgres on Hetzner** (~$50–100/mo for dedicated hardware)
+- Keep Vercel for the Next.js app (edge network is hard to replicate)
+- Keep Cloudflare R2 for storage
+- Replace Supabase Auth with **Clerk** or self-hosted **GoTrue** (Supabase's auth engine)
+- Total: ~$400–600/mo
+- Pros: ~50% cost reduction
+- Cons: significant migration effort, you own DB ops
+
+**Option C — Full containerisation**
+- Move Next.js app to **Fly.io** or **Railway** (persistent containers, no cold starts, cheaper at volume)
+- Self-managed Postgres cluster with streaming replication
+- Total: ~$300–500/mo
+- Pros: lowest cost, full control
+- Cons: substantial ops burden — backup strategy, failover, patching all become your problem
+
+---
+
+### Revenue vs cost by phase
+
+Assumed conversion: 40% free signups, of paying users: 70% Lover (€5/mo) / 30% Pro (€15/mo).
+Stripe EU fees: 1.5% + €0.25/transaction.
+
+| Total users | Paying | Revenue | Infra (phase) | Gross margin |
 |---|---|---|---|---|
-| 10 | 70 MB | 30 | $82 (fixed baseline) | $8.20 |
-| 100 | 700 MB | 300 | $82 | $0.82 |
-| 500 | 3.5 GB | 1,500 | $82 | $0.16 |
-| 1,000 | 7 GB | 3,000 | $102 (+Resend Scale) | $0.10 |
-| 5,000 | 35 GB | 15,000 | $112 | $0.022 |
-| 10,000 | 70 GB | 30,000 | $127 (+Resend 30k tier $35) | $0.013 |
-| 50,000 | 350 GB | 150,000 | $368 (+storage overage $53, +Resend 200k $150, +Upstash $50) | $0.007 |
-| 100,000 | 700 GB | 300,000 | ~$640 | $0.006 |
+| 100 | 60 | €450 | $102 (P1) | ~78% |
+| 500 | 300 | €2,250 | $102 (P1) | ~95% |
+| 1,000 | 600 | €4,500 | $177 (P2) | ~96% |
+| 5,000 | 3,000 | €22,500 | $177 (P2) | ~99% |
+| 10,000 | 6,000 | €45,000 | $691 (P3) | ~98.5% |
+| 50,000 | 30,000 | €225,000 | $691 (P3) | ~99.7% |
+| 100,000 | 60,000 | €450,000 | $1,100 (P4-A) | ~99.8% |
 
-Storage overage on Supabase Pro: $0.021/GB above 100 GB. Kicks in around 15,000 users.
+Stripe fees reduce revenue by ~1.7% (included in margin estimates above).
 
-**The main cost cliff is the fixed baseline (~$82/mo), not per-user marginal cost. At 100+ users the business easily covers infrastructure.**
-
----
-
-### Revenue vs cost
-
-Assumed conversion: 20% free / 70% Lover (€5/mo) / 10% Pro (€15/mo) of paying users. Free users are ~40% of total signups.
-
-Stripe fees (EU): 1.5% + €0.25 per transaction.
-
-| Total users | Paying users | Monthly revenue | Infra cost | Gross margin |
-|---|---|---|---|---|
-| 50 | 30 | €210 | $82 | ~61% |
-| 250 | 150 | €1,050 | $82 | ~92% |
-| 1,000 | 600 | €4,200 | $102 | ~97.6% |
-| 5,000 | 3,000 | €21,000 | $112 | ~99.5% |
-| 10,000 | 6,000 | €42,000 | $127 | ~99.7% |
-| 50,000 | 30,000 | €210,000 | $368 | ~99.8% |
-
-Stripe takes an additional ~1.7% off revenue (factored into the margin above as a rough estimate).
-
-**This is a ~99% gross margin SaaS at meaningful scale. The constraint is customer acquisition cost, not infrastructure.**
+**The gross margin stays high across all phases because infrastructure costs grow much slower than revenue. The real cost of scale is engineering time, not servers — each phase transition requires 1–2 weeks of migration work.**
 
 ---
 
-### Cost cliff points to watch
+### What actually breaks and when
 
-1. **Supabase free → Pro ($25/mo):** Do this on day one of any paying customer. Free tier pauses cause outages.
-2. **Resend free → Scale ($20/mo):** Hits around 1,000 active users/mo (3k emails/mo limit).
-3. **Supabase 100 GB storage → overage ($0.021/GB):** Around 15,000 users. Still cheap.
-4. **Supabase Pro connection limit (60 direct connections):** Enable Supabase's built-in connection pooler (PgBouncer) before you hit this. Relevant around 5,000+ concurrent users.
-5. **Supabase Team ($599/mo):** Only needed for SSO, priority support, and 99.9% SLA. Not a cost concern until enterprise sales.
+| Scale | What breaks | Fix |
+|---|---|---|
+| First paying customer | Supabase free tier pauses the DB | Upgrade to Pro immediately |
+| ~500 concurrent users | DB connection limit (60 direct) | Enable Supavisor pooler (transaction mode) |
+| ~1,000 users | Email sending fails silently under load | Move to background job queue |
+| ~5,000 users | Selector page DB reads spike on popular flows | Redis cache for published flow data |
+| ~15,000 users | Supabase Storage egress costs accumulate | Migrate media to Cloudflare R2 |
+| ~20,000 users | Shared Supabase compute causes query latency | Upgrade to Dedicated instance |
+| ~50,000 users | Vercel cost/function pricing adds up | Evaluate partial self-hosting |
+| ~100,000 users | Managed stack overhead exceeds self-hosting cost | Re-platform decision point |
 
 ---
 
