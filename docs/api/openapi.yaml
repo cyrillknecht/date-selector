@@ -1,0 +1,709 @@
+openapi: 3.1.0
+info:
+  title: Date Night Selector API
+  version: 1.0.0
+  description: |
+    Internal API for the Date Night Selector application.
+    All `/api/flows/*` and `/api/upload` endpoints require creator authentication (Supabase JWT in cookie).
+    `/api/selections` is public but requires a valid flow token in the request body.
+
+servers:
+  - url: https://date-selector.vercel.app
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Flows
+    description: Manage date selection flows (creator only)
+  - name: Upload
+    description: Photo upload URL generation (creator only)
+  - name: Selections
+    description: Submit and retrieve selections
+
+paths:
+
+  # ─── FLOWS ───────────────────────────────────────────────────────────────
+
+  /api/flows:
+    get:
+      tags: [Flows]
+      summary: List all flows
+      description: Returns all non-archived flows for the creator, ordered by created_at descending.
+      security:
+        - CreatorSession: []
+      responses:
+        '200':
+          description: Flow list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FlowSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Flows]
+      summary: Create a new flow
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFlowRequest'
+      responses:
+        '201':
+          description: Flow created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/flows/{id}:
+    parameters:
+      - $ref: '#/components/parameters/FlowId'
+
+    get:
+      tags: [Flows]
+      summary: Get a single flow with all modules and cards
+      security:
+        - CreatorSession: []
+      responses:
+        '200':
+          description: Full flow with modules, cards, and questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlowDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Flows]
+      summary: Update flow metadata
+      description: Updates title, intro/outro message. Cannot update a published flow's modules via this endpoint.
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFlowRequest'
+      responses:
+        '200':
+          description: Updated flow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '423':
+          $ref: '#/components/responses/FlowLocked'
+
+    delete:
+      tags: [Flows]
+      summary: Archive a flow (soft delete)
+      security:
+        - CreatorSession: []
+      responses:
+        '204':
+          description: Flow archived
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/flows/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/FlowId'
+    post:
+      tags: [Flows]
+      summary: Publish a flow
+      description: |
+        Sets flow status to 'published' and generates a unique share token.
+        Requires at least one module with at least two cards/questions.
+      security:
+        - CreatorSession: []
+      responses:
+        '200':
+          description: Flow published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shareUrl:
+                    type: string
+                    example: https://date-selector.vercel.app/abc123-uuid-token
+                  token:
+                    type: string
+                    format: uuid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Flow cannot be published (no modules or insufficient cards)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/flows/{id}/modules:
+    parameters:
+      - $ref: '#/components/parameters/FlowId'
+    post:
+      tags: [Flows]
+      summary: Add a module to a flow
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateModuleRequest'
+      responses:
+        '201':
+          description: Module created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Module'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '423':
+          $ref: '#/components/responses/FlowLocked'
+
+  /api/flows/{id}/modules/order:
+    parameters:
+      - $ref: '#/components/parameters/FlowId'
+    patch:
+      tags: [Flows]
+      summary: Reorder modules
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderedIds]
+              properties:
+                orderedIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Order updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '423':
+          $ref: '#/components/responses/FlowLocked'
+
+  /api/flows/{id}/modules/{moduleId}/cards:
+    parameters:
+      - $ref: '#/components/parameters/FlowId'
+      - $ref: '#/components/parameters/ModuleId'
+    post:
+      tags: [Flows]
+      summary: Add a card to a decision module
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardRequest'
+      responses:
+        '201':
+          description: Card created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '423':
+          $ref: '#/components/responses/FlowLocked'
+
+  # ─── UPLOAD ──────────────────────────────────────────────────────────────
+
+  /api/upload:
+    post:
+      tags: [Upload]
+      summary: Generate a signed upload URL for a photo
+      description: |
+        Returns a short-lived signed URL (60 seconds) for direct browser-to-storage upload,
+        plus the permanent public CDN URL to store on the card after upload completes.
+      security:
+        - CreatorSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, contentType]
+              properties:
+                filename:
+                  type: string
+                  example: restaurant-photo.jpg
+                contentType:
+                  type: string
+                  example: image/jpeg
+      responses:
+        '200':
+          description: Signed URL and public CDN URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signedUrl:
+                    type: string
+                    description: PUT this URL with the raw file bytes. Expires in 60 seconds.
+                  publicUrl:
+                    type: string
+                    description: Permanent CDN URL. Store this on the card after upload.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── SELECTIONS ──────────────────────────────────────────────────────────
+
+  /api/selections:
+    post:
+      tags: [Selections]
+      summary: Submit a completed selection
+      description: |
+        Called by the selector's browser after completing all flow steps.
+        Validates the flow token, persists the selection and all answers, and triggers the notification email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitSelectionRequest'
+      responses:
+        '201':
+          description: Selection saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: Flow not found or not published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Selection already submitted for this session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/selections/{flowId}:
+    get:
+      tags: [Selections]
+      summary: Get all selections for a flow
+      security:
+        - CreatorSession: []
+      parameters:
+        - name: flowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of selections with answers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SelectionDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ─── COMPONENTS ────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    CreatorSession:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+      description: Supabase JWT issued on creator login, stored in an httpOnly cookie.
+
+  parameters:
+    FlowId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ModuleId:
+      name: moduleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid creator session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Unauthorized
+            code: AUTH_REQUIRED
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Not found
+            code: NOT_FOUND
+    ValidationError:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: title is required
+            code: VALIDATION_ERROR
+            field: title
+    FlowLocked:
+      description: Flow is published and cannot be edited
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Published flows cannot be edited. Unpublish first.
+            code: FLOW_LOCKED
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        field:
+          type: string
+          description: Present for validation errors
+
+    FlowSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [draft, published, unpublished, archived]
+        selectionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Flow:
+      allOf:
+        - $ref: '#/components/schemas/FlowSummary'
+        - type: object
+          properties:
+            introMessage:
+              type: string
+              nullable: true
+            outroMessage:
+              type: string
+              nullable: true
+            token:
+              type: string
+              format: uuid
+              nullable: true
+            shareUrl:
+              type: string
+              nullable: true
+
+    FlowDetail:
+      allOf:
+        - $ref: '#/components/schemas/Flow'
+        - type: object
+          properties:
+            modules:
+              type: array
+              items:
+                $ref: '#/components/schemas/Module'
+
+    Module:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [decision, quiz]
+        position:
+          type: integer
+        promptText:
+          type: string
+          description: For decision modules
+          nullable: true
+        allowMultiSelect:
+          type: boolean
+          description: For decision modules
+          nullable: true
+        title:
+          type: string
+          description: For quiz modules
+          nullable: true
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+          description: Populated for decision modules
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuizQuestion'
+          description: Populated for quiz modules
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        priceRange:
+          type: string
+          enum: ['€', '€€', '€€€']
+          nullable: true
+        moodTags:
+          type: array
+          items:
+            type: string
+        photoUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    QuizQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        questionText:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+          minItems: 2
+
+    CreateFlowRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        introMessage:
+          type: string
+          maxLength: 500
+        outroMessage:
+          type: string
+          maxLength: 500
+
+    UpdateFlowRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        introMessage:
+          type: string
+          maxLength: 500
+        outroMessage:
+          type: string
+          maxLength: 500
+        status:
+          type: string
+          enum: [unpublished, published]
+
+    CreateModuleRequest:
+      type: object
+      required: [type, position]
+      properties:
+        type:
+          type: string
+          enum: [decision, quiz]
+        position:
+          type: integer
+        promptText:
+          type: string
+          maxLength: 200
+          description: Required for type=decision
+        allowMultiSelect:
+          type: boolean
+          default: false
+        title:
+          type: string
+          maxLength: 100
+          description: Required for type=quiz
+
+    CreateCardRequest:
+      type: object
+      required: [title, position]
+      properties:
+        position:
+          type: integer
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        location:
+          type: string
+          maxLength: 200
+        priceRange:
+          type: string
+          enum: ['€', '€€', '€€€']
+        moodTags:
+          type: array
+          items:
+            type: string
+        photoUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    SubmitSelectionRequest:
+      type: object
+      required: [flowId, token, answers]
+      properties:
+        flowId:
+          type: string
+          format: uuid
+        token:
+          type: string
+          format: uuid
+        message:
+          type: string
+          maxLength: 1000
+        answers:
+          type: array
+          items:
+            type: object
+            required: [moduleId, moduleType]
+            properties:
+              moduleId:
+                type: string
+                format: uuid
+              moduleType:
+                type: string
+                enum: [decision, quiz]
+              chosenCardIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: For decision modules
+              chosenOptionText:
+                type: string
+                description: For quiz modules
+
+    SelectionDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        submittedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          nullable: true
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              moduleId:
+                type: string
+                format: uuid
+              moduleType:
+                type: string
+                enum: [decision, quiz]
+              chosenCards:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Card'
+              chosenOptionText:
+                type: string
+                nullable: true

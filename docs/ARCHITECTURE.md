@@ -270,7 +270,58 @@ All significant technology choices are documented in the `/docs/adr/` directory:
 
 ---
 
-## 9. Out of Scope (v1)
+## 9. Full Documentation Index
+
+### C4 Diagrams
+| Document | Description |
+|---|---|
+| [L1 — System Context](c4/L1-system-context.md) | System and external actors |
+| [L2 — Containers](c4/L2-containers.md) | Deployable units and communication |
+| [L3 — Next.js Components](c4/L3-components-nextjs.md) | Internal Next.js application structure |
+| [L3 — Supabase Components](c4/L3-components-supabase.md) | Internal Supabase platform structure |
+
+### Diagrams
+| Document | Description |
+|---|---|
+| [Sequence: Selector Flow](diagrams/sequence-selector-flow.md) | Girlfriend completing a selection |
+| [Sequence: Creator Publish](diagrams/sequence-creator-publish.md) | Creator building and publishing a flow |
+| [State: Flow Lifecycle](diagrams/state-flow-lifecycle.md) | Flow entity state machine |
+| [Deployment Diagram](diagrams/deployment.md) | Infrastructure and traffic routing |
+
+### Data Architecture
+| Document | Description |
+|---|---|
+| [ERD](data/ERD.md) | Entity relationship diagram |
+| [Data Dictionary](data/data-dictionary.md) | All tables, columns, types, constraints |
+
+### API
+| Document | Description |
+|---|---|
+| [OpenAPI Spec](api/openapi.yaml) | Full API specification |
+| [API Design Principles](api/api-design.md) | Conventions and standards |
+
+### Security
+| Document | Description |
+|---|---|
+| [Threat Model](security/threat-model.md) | STRIDE analysis |
+| [Auth & Authorization Design](security/auth-design.md) | Session model, token design, permission matrix |
+
+### Operations
+| Document | Description |
+|---|---|
+| [Observability Strategy](operations/observability.md) | Logging, alerting, SLOs |
+| [Branching Strategy](operations/branching-strategy.md) | Git workflow and commit conventions |
+| [Testing Strategy](operations/testing-strategy.md) | Test pyramid, tools, coverage targets |
+| [Error Handling Strategy](operations/error-handling.md) | Error boundaries, logging standards |
+
+### Domain
+| Document | Description |
+|---|---|
+| [Glossary](domain/glossary.md) | Ubiquitous language — canonical terms for all entities and concepts |
+
+---
+
+## 10. Out of Scope (v1)
 
 See [PRD.md](../PRD.md) for the full list. From an architecture perspective, the following are explicitly not modeled:
 
