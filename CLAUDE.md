@@ -54,6 +54,8 @@ app/
 - **Selection submission is atomic**: entire flow held in React state; one server action call at the end.
 - **`NEXT_PUBLIC_*` vars are compile-time constants**: use `APP_URL` (no prefix) for server-runtime env vars like share link generation.
 - **Animations**: Framer Motion `AnimatePresence` for slide transitions; `useReducedMotion()` toggles to fade-only variants when `prefers-reduced-motion` is set.
+- **i18n**: All selector-facing UI strings live in `i18n/selector.ts` — edit there, components import from `t`.
+- **Polaroid background**: `components/selector/PolaroidBackground.tsx` — images served from `public/backgrounds/`, positions defined in `PLACEMENTS` array.
 - **Published flows are locked**: server actions reject mutations on published flows with a `FLOW_LOCKED` `AppError`.
 
 ### Error handling
@@ -67,16 +69,22 @@ All API routes use `withErrorHandler` from `lib/errors.ts`. Throw `AppError` for
 - **Vercel project**: `date-selector-selector` (`prj_nnA2v8ersWQnDJ651F7k0WOl3Qzx`)
 - **Supabase project**: `htztpctkkjfyobrbhdld`
 - **CI**: `.github/workflows/ci.yml` — lint + typecheck + Vitest on all non-main branches
-- **Deploy**: `.github/workflows/deploy.yml` — `supabase link` + `supabase db push` on main push
+- **Deploy**: `.github/workflows/deploy.yml` — lint + typecheck + test → supabase migrations → `vercel deploy --prod` on every push to main
 
-### Required environment variables
-| Variable | Where used |
+### GitHub Actions secrets required
+| Secret | Purpose |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Client + server Supabase client |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client Supabase client |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only (never `NEXT_PUBLIC_`) |
-| `APP_URL` | Server-side share link generation (e.g. `https://date-selector-selector.vercel.app`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Build-time Supabase URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Build-time Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase client |
+| `SUPABASE_ACCESS_TOKEN` | Supabase CLI auth |
+| `SUPABASE_PROJECT_ID` | Supabase project ref |
+| `SUPABASE_DB_PASSWORD` | Migration pushes |
 | `RESEND_API_KEY` | Email notifications |
+| `VERCEL_API_TOKEN` | Vercel deployment |
+| `VERCEL_ORG_ID` | Vercel team (`team_pUAlfzrb4wJsyPZ5zQspR899`) |
+| `VERCEL_PROJECT_ID` | Vercel project (`prj_nnA2v8ersWQnDJ651F7k0WOl3Qzx`) |
+| `APP_URL` | Server-side share link generation |
 
 ---
 
