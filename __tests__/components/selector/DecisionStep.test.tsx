@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DecisionStep } from '@/components/selector/DecisionStep'
+import { t } from '@/i18n/selector'
 
 const CARDS = [
   {
@@ -47,7 +48,7 @@ describe('DecisionStep', () => {
         onAnswer={vi.fn()}
       />,
     )
-    expect(screen.getByText('Pick your favourite')).toBeInTheDocument()
+    expect(screen.getByText(t.singleSelectHint)).toBeInTheDocument()
   })
 
   it('shows "Select all that you like" hint in multi-select mode', () => {
@@ -59,7 +60,7 @@ describe('DecisionStep', () => {
         onAnswer={vi.fn()}
       />,
     )
-    expect(screen.getByText('Select all that you like')).toBeInTheDocument()
+    expect(screen.getByText(t.multiSelectHint)).toBeInTheDocument()
   })
 
   it('calls onAnswer with the card id when clicked (single select)', () => {
