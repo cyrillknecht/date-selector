@@ -146,6 +146,92 @@ Supabase Pro includes daily backups. For additional protection:
 
 ---
 
+## Cost Model
+
+All prices in USD/month unless noted. Based on current (2026) public pricing.
+
+---
+
+### Assumptions per active user/month
+| Metric | Estimate | Basis |
+|---|---|---|
+| Storage added | ~7 MB | 2–3 flows/year × 5 cards × 2 photos avg at 2 MB each |
+| Emails sent | ~3 | ~1 selection per published flow |
+| DB compute | negligible | Serverless; covered by Supabase plan |
+| Bandwidth | ~20 MB | Selector page loads (photos served from Storage CDN) |
+
+---
+
+### Fixed infrastructure baseline
+
+These costs are constant regardless of user count once you move off free tiers:
+
+| Service | Free tier | Paid tier | Trigger to upgrade |
+|---|---|---|---|
+| Vercel | 100 GB bandwidth | Pro $20/mo (1 TB, no function limits) | Custom domain, >100 GB/mo bandwidth, or SLA needed |
+| Supabase | 500 MB DB, 1 GB storage, pauses after 1 week inactivity | Pro $25/mo (8 GB DB, 100 GB storage, no pause, daily backups) | Any paying customer (free tier pausing will cause outages) |
+| Resend | 3,000 emails/mo | Scale $20/mo (50k emails) | ~1,000 active users/mo |
+| Upstash Redis | 10k commands/day | Pay-as-you-go ~$10/mo | When rate limiting is added |
+| Sentry | 5k errors/mo | Team $26/mo | First paying customer |
+| Domain | — | ~$1.25/mo ($15/yr) | Always |
+| Terraform Cloud | Free ≤500 resources | — | Never at this scale |
+| GitHub Actions | 2,000 min/mo (private) | — | Never at this scale |
+
+**Minimum viable paid infrastructure: ~$82/month**
+(Vercel Pro + Supabase Pro + Resend Scale + Upstash + Sentry + domain)
+
+---
+
+### Cost at scale
+
+| Users | Storage total | Emails/mo | Infra cost | Cost per user |
+|---|---|---|---|---|
+| 10 | 70 MB | 30 | $82 (fixed baseline) | $8.20 |
+| 100 | 700 MB | 300 | $82 | $0.82 |
+| 500 | 3.5 GB | 1,500 | $82 | $0.16 |
+| 1,000 | 7 GB | 3,000 | $102 (+Resend Scale) | $0.10 |
+| 5,000 | 35 GB | 15,000 | $112 | $0.022 |
+| 10,000 | 70 GB | 30,000 | $127 (+Resend 30k tier $35) | $0.013 |
+| 50,000 | 350 GB | 150,000 | $368 (+storage overage $53, +Resend 200k $150, +Upstash $50) | $0.007 |
+| 100,000 | 700 GB | 300,000 | ~$640 | $0.006 |
+
+Storage overage on Supabase Pro: $0.021/GB above 100 GB. Kicks in around 15,000 users.
+
+**The main cost cliff is the fixed baseline (~$82/mo), not per-user marginal cost. At 100+ users the business easily covers infrastructure.**
+
+---
+
+### Revenue vs cost
+
+Assumed conversion: 20% free / 70% Lover (€5/mo) / 10% Pro (€15/mo) of paying users. Free users are ~40% of total signups.
+
+Stripe fees (EU): 1.5% + €0.25 per transaction.
+
+| Total users | Paying users | Monthly revenue | Infra cost | Gross margin |
+|---|---|---|---|---|
+| 50 | 30 | €210 | $82 | ~61% |
+| 250 | 150 | €1,050 | $82 | ~92% |
+| 1,000 | 600 | €4,200 | $102 | ~97.6% |
+| 5,000 | 3,000 | €21,000 | $112 | ~99.5% |
+| 10,000 | 6,000 | €42,000 | $127 | ~99.7% |
+| 50,000 | 30,000 | €210,000 | $368 | ~99.8% |
+
+Stripe takes an additional ~1.7% off revenue (factored into the margin above as a rough estimate).
+
+**This is a ~99% gross margin SaaS at meaningful scale. The constraint is customer acquisition cost, not infrastructure.**
+
+---
+
+### Cost cliff points to watch
+
+1. **Supabase free → Pro ($25/mo):** Do this on day one of any paying customer. Free tier pauses cause outages.
+2. **Resend free → Scale ($20/mo):** Hits around 1,000 active users/mo (3k emails/mo limit).
+3. **Supabase 100 GB storage → overage ($0.021/GB):** Around 15,000 users. Still cheap.
+4. **Supabase Pro connection limit (60 direct connections):** Enable Supabase's built-in connection pooler (PgBouncer) before you hit this. Relevant around 5,000+ concurrent users.
+5. **Supabase Team ($599/mo):** Only needed for SSO, priority support, and 99.9% SLA. Not a cost concern until enterprise sales.
+
+---
+
 ## Legal and compliance
 
 Required before taking payments:
