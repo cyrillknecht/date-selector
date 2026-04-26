@@ -133,6 +133,7 @@ export type Database = {
           status: string
           title: string
           token: string | null
+          user_id: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -147,6 +148,7 @@ export type Database = {
           status?: string
           title: string
           token?: string | null
+          user_id?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -161,6 +163,7 @@ export type Database = {
           status?: string
           title?: string
           token?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {

@@ -1,9 +1,19 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
+import { createSessionClient } from '@/lib/supabase/session'
+
+async function requireAuth() {
+  const session = await createSessionClient()
+  const { data: { user } } = await session.auth.getUser()
+  if (!user) redirect('/login?reason=session_expired')
+  return user
+}
 
 export async function createQuestion(moduleId: string, flowId: string) {
+  await requireAuth()
   const supabase = createServerClient()
   const { data } = await supabase
     .from('quiz_questions')
@@ -22,6 +32,7 @@ export async function createQuestion(moduleId: string, flowId: string) {
 }
 
 export async function updateQuestion(questionId: string, moduleId: string, flowId: string, formData: FormData) {
+  await requireAuth()
   const supabase = createServerClient()
   const optionsRaw = (formData.get('options') as string) || ''
   const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean)
@@ -36,6 +47,7 @@ export async function updateQuestion(questionId: string, moduleId: string, flowI
 }
 
 export async function deleteQuestion(questionId: string, moduleId: string, flowId: string) {
+  await requireAuth()
   const supabase = createServerClient()
   await supabase.from('quiz_questions').delete().eq('id', questionId)
   revalidatePath(`/creator/flows/${flowId}/modules/quiz/${moduleId}`)
