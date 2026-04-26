@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowLeft, Heart, Send, Loader2 } from 'lucide-react'
 import { DecisionStep } from './DecisionStep'
 import { QuizStep } from './QuizStep'
@@ -40,13 +40,21 @@ interface SelectorFlowProps {
   modules: Module[]
 }
 
-const variants = {
+const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
 }
 
+const fadeVariants = {
+  enter: () => ({ opacity: 0 }),
+  center: { opacity: 1 },
+  exit: () => ({ opacity: 0 }),
+}
+
 export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: SelectorFlowProps) {
+  const prefersReducedMotion = useReducedMotion()
+  const variants = prefersReducedMotion ? fadeVariants : slideVariants
   // step: -1 = intro, 0..n-1 = module steps, n = message, n+1 = done
   const totalModules = modules.length
   const [step, setStep] = useState(-1)
