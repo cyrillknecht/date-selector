@@ -30,7 +30,8 @@ create policy "creator_own_flows"
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Backfill: set user_id to the current session user for any existing rows.
--- In production, run this once as the creator:
---   update public.flows set user_id = auth.uid() where user_id is null;
--- (Cannot be done in a migration because auth.uid() is null at migration time.)
+-- Backfill: assign all existing flows to the only user in the project.
+-- Safe for a solo app; postgres role can read auth.users directly.
+update public.flows
+set user_id = (select id from auth.users order by created_at limit 1)
+where user_id is null;
