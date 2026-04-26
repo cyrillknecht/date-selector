@@ -17,6 +17,15 @@ export async function submitSelection(
 ) {
   const supabase = createServerClient()
 
+  // Explicit published check — service role bypasses RLS, so we enforce this here.
+  const { data: flowCheck } = await supabase
+    .from('flows')
+    .select('id')
+    .eq('id', flowId)
+    .eq('status', 'published')
+    .single()
+  if (!flowCheck) throw new Error('Flow not available for submission')
+
   // Create the selection record
   const { data: selection, error: selError } = await supabase
     .from('selections')

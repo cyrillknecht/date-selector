@@ -46,6 +46,7 @@ export type Database = {
           position: number
           price_range: string | null
           title: string
+          url: string | null
         }
         Insert: {
           created_at?: string
@@ -58,6 +59,7 @@ export type Database = {
           position: number
           price_range?: string | null
           title: string
+          url?: string | null
         }
         Update: {
           created_at?: string
@@ -70,6 +72,7 @@ export type Database = {
           position?: number
           price_range?: string | null
           title?: string
+          url?: string | null
         }
         Relationships: [
           {
@@ -119,38 +122,58 @@ export type Database = {
       flows: {
         Row: {
           archived_at: string | null
+          confirmed_at: string | null
+          confirmed_card_id: string | null
           created_at: string
           id: string
           intro_message: string | null
+          meeting_point: string | null
           outro_message: string | null
           published_at: string | null
           status: string
           title: string
           token: string | null
+          user_id: string | null
         }
         Insert: {
           archived_at?: string | null
+          confirmed_at?: string | null
+          confirmed_card_id?: string | null
           created_at?: string
           id?: string
           intro_message?: string | null
+          meeting_point?: string | null
           outro_message?: string | null
           published_at?: string | null
           status?: string
           title: string
           token?: string | null
+          user_id?: string | null
         }
         Update: {
           archived_at?: string | null
+          confirmed_at?: string | null
+          confirmed_card_id?: string | null
           created_at?: string
           id?: string
           intro_message?: string | null
+          meeting_point?: string | null
           outro_message?: string | null
           published_at?: string | null
           status?: string
           title?: string
           token?: string | null
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "flows_confirmed_card_id_fkey"
+            columns: ["confirmed_card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_modules: {
         Row: {

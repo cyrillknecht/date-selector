@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { DecisionStep } from '@/components/selector/DecisionStep'
 import { t } from '@/i18n/selector'
 
@@ -122,7 +123,7 @@ describe('DecisionStep', () => {
     expect(onAnswer).toHaveBeenLastCalledWith(['card-2'])
   })
 
-  it('renders location and price metadata when present', () => {
+  it('renders location and price metadata in expand panel after tapping expand', async () => {
     render(
       <DecisionStep
         promptText="Pick one"
@@ -131,11 +132,14 @@ describe('DecisionStep', () => {
         onAnswer={vi.fn()}
       />,
     )
-    expect(screen.getByText('City Center')).toBeInTheDocument()
-    expect(screen.getByText('$$')).toBeInTheDocument()
+    const expandBtn = screen.getAllByLabelText('Expand')[0]
+    await userEvent.click(expandBtn)
+    // getAllByText because both desktop (hover) and mobile (tap) panels may render in jsdom
+    expect(screen.getAllByText('City Center').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$$').length).toBeGreaterThan(0)
   })
 
-  it('renders mood tags', () => {
+  it('renders mood tags in expand panel after tapping expand', async () => {
     render(
       <DecisionStep
         promptText="Pick one"
@@ -144,7 +148,9 @@ describe('DecisionStep', () => {
         onAnswer={vi.fn()}
       />,
     )
-    expect(screen.getByText('romantic')).toBeInTheDocument()
-    expect(screen.getByText('cozy')).toBeInTheDocument()
+    const expandBtn = screen.getAllByLabelText('Expand')[0]
+    await userEvent.click(expandBtn)
+    expect(screen.getAllByText('romantic').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('cozy').length).toBeGreaterThan(0)
   })
 })

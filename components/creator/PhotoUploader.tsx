@@ -1,11 +1,19 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ImagePlus, X, Loader2 } from 'lucide-react'
+import { ImagePlus, X, Loader2, Film } from 'lucide-react'
+
+const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v']
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,video/x-m4v'
+
+function isVideo(url: string) {
+  const lower = url.toLowerCase().split('?')[0]
+  return VIDEO_EXTS.some((ext) => lower.endsWith(ext))
+}
 
 interface PhotoUploaderProps {
   initialUrls: string[]
-  name: string // the hidden input name consumed by the server action
+  name: string
 }
 
 export function PhotoUploader({ initialUrls, name }: PhotoUploaderProps) {
@@ -43,16 +51,20 @@ export function PhotoUploader({ initialUrls, name }: PhotoUploaderProps) {
 
   return (
     <div className="space-y-3">
-      {/* Hidden input carries the current URLs to the server action */}
       <input type="hidden" name={name} value={urls.join('\n')} />
 
-      {/* Thumbnail grid */}
       {urls.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {urls.map((url) => (
             <div key={url} className="relative size-20 rounded-lg overflow-hidden border border-stone-200 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="w-full h-full object-cover" />
+              {isVideo(url) ? (
+                <div className="w-full h-full bg-stone-100 flex items-center justify-center">
+                  <Film className="size-6 text-stone-400" />
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              )}
               <button
                 type="button"
                 onClick={() => remove(url)}
@@ -65,7 +77,6 @@ export function PhotoUploader({ initialUrls, name }: PhotoUploaderProps) {
         </div>
       )}
 
-      {/* Upload button */}
       <div>
         <label className={`inline-flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-lg border border-dashed transition-colors ${
           uploading
@@ -74,12 +85,12 @@ export function PhotoUploader({ initialUrls, name }: PhotoUploaderProps) {
         }`}>
           {uploading
             ? <><Loader2 className="size-4 animate-spin" /> Uploading…</>
-            : <><ImagePlus className="size-4" /> Add photo</>
+            : <><ImagePlus className="size-4" /> Add photo / video</>
           }
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept={ACCEPT}
             multiple
             disabled={uploading}
             className="sr-only"
