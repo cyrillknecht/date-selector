@@ -1,0 +1,280 @@
+# Technical Architecture Document
+## Date Night Selector
+
+**Version:** 1.0  
+**Date:** 2026-04-26  
+**Author:** Cyrill Knecht
+
+---
+
+## 1. Purpose
+
+This document describes the technical architecture of the Date Night Selector — a private, animated web application for curating and presenting romantic date options. It covers system context, component decomposition, data flow, infrastructure, and cross-cutting concerns. It is the authoritative reference for any implementation decisions not covered by a dedicated ADR.
+
+---
+
+## 2. System Context
+
+The system has two types of users and no external integrations beyond email delivery.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Date Night Selector                  │
+│                                                         │
+│  ┌──────────────┐          ┌─────────────────────────┐  │
+│  │   Creator    │          │  Selector (girlfriend)  │  │
+│  │  (Cyrill)    │          │  (link-gated, no login) │  │
+│  └──────┬───────┘          └───────────┬─────────────┘  │
+│         │ authenticated                │ token in URL    │
+│         ▼                              ▼                 │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │              Next.js Application                   │ │
+│  │         (creator dashboard + selector UI)          │ │
+│  └──────────────────────┬──────────────────────────── ┘ │
+│                         │                               │
+│            ┌────────────┴────────────┐                  │
+│            ▼                         ▼                  │
+│     ┌─────────────┐         ┌──────────────┐            │
+│     │  Supabase   │         │    Resend    │            │
+│     │  (DB +      │         │   (email     │            │
+│     │   Storage)  │         │  delivery)   │            │
+│     └─────────────┘         └──────────────┘            │
+└─────────────────────────────────────────────────────────┘
+```
+
+**External actors:**
+- **Creator** — authenticated via Supabase Auth; manages flows, views selections
+- **Selector** — accesses via a unique token URL; no account required
+
+**External systems:**
+- **Supabase** — PostgreSQL database, file storage, authentication
+- **Resend** — transactional email (selection notification to creator)
+
+---
+
+## 3. Tech Stack Summary
+
+| Layer | Technology | Rationale |
+|---|---|---|
+| Framework | Next.js 15 (App Router) | SSR + API routes in one, first-class Vercel support |
+| Language | TypeScript | Type safety across DB ↔ API ↔ UI boundary |
+| Styling | Tailwind CSS v4 + shadcn/ui | Zero-runtime utility CSS + owned UI primitives |
+| Animations | Framer Motion + canvas-confetti | Declarative gestures, layout animations, exit transitions |
+| Database | Supabase (PostgreSQL) | Managed Postgres with RLS, type generation, migrations |
+| File Storage | Supabase Storage | Photo upload and CDN delivery |
+| Auth | Supabase Auth | Creator-only authentication; selector uses token URL |
+| Email | Resend + React Email | Simple API, HTML templates as React components |
+| Hosting | Vercel | Zero-config Next.js hosting, automatic preview deploys |
+| CI/CD | GitHub Actions | Lint, typecheck, test, infra apply, migration apply |
+| IaC | Terraform + Terraform Cloud | Vercel and Supabase provisioning, remote state |
+
+---
+
+## 4. Application Architecture
+
+### 4.1 Route Structure
+
+```
+app/
+  (creator)/               # Route group — requires auth
+    layout.tsx             # Auth guard + dashboard shell
+    dashboard/
+      page.tsx             # Flow list + status overview
+    flows/
+      new/page.tsx         # Create flow
+      [id]/
+        page.tsx           # Edit flow (cards, modules, settings)
+        preview/page.tsx   # Preview the selector experience
+    selections/
+      [flowId]/page.tsx    # View all submissions for a flow
+
+  (selector)/              # Route group — public, token-gated
+    [token]/
+      page.tsx             # Selector landing (intro message)
+      flow/
+        page.tsx           # Flow step controller
+      done/page.tsx        # Confirmation screen
+
+  api/
+    flows/route.ts         # CRUD for flows
+    flows/[id]/publish/    # Publish a flow, generate token
+    selections/route.ts    # POST selection (called by selector)
+    upload/route.ts        # Signed URL generation for photo upload
+```
+
+### 4.2 Component Architecture
+
+Components are split by concern, not by route:
+
+```
+components/
+  creator/
+    FlowBuilder.tsx        # Drag-and-drop module ordering
+    CardEditor.tsx         # Photo upload, fields, tags
+    QuizBuilder.tsx        # Question list editor
+    ShareModal.tsx         # Copy link, QR code
+
+  selector/
+    FlowController.tsx     # State machine for multi-step flow
+    DecisionStep.tsx       # Card grid or stack for one decision module
+    QuizStep.tsx           # Animated question sequence
+    CardTile.tsx           # Individual date card (photo, title, tags)
+    ConfirmationScreen.tsx # Final submission moment
+
+  shared/
+    AnimatedPage.tsx       # Framer Motion page wrapper
+    PhotoGallery.tsx       # Swipeable photo viewer
+    MoodTag.tsx            # Visual pill for mood tags
+```
+
+### 4.3 State Management
+
+No global state library is used. State is managed at the appropriate level:
+
+- **Creator dashboard** — React Server Components fetch data server-side; mutations go through Next.js Server Actions or API routes with `router.refresh()`
+- **Selector flow** — `FlowController` holds the in-progress selection state in component state (`useState`). On final submission, the full selection is POSTed to `/api/selections` in one request. Nothing is persisted mid-flow to avoid partial submissions.
+
+---
+
+## 5. Data Architecture
+
+### 5.1 Entity Relationship (simplified)
+
+```
+flows ──────────────────────────────────────────────┐
+  │ id, title, token, status, intro_msg, outro_msg   │
+  │                                                  │
+  ├──< decision_modules                              │
+  │      id, flow_id, position, prompt_text          │
+  │         │                                        │
+  │         └──< cards                               │
+  │                id, decision_module_id, position  │
+  │                title, description, location      │
+  │                price_range, mood_tags[]          │
+  │                photo_urls[]                      │
+  │                                                  │
+  └──< quiz_modules                                  │
+         id, flow_id, position, title               │
+            │                                       │
+            └──< quiz_questions                     │
+                   id, quiz_module_id, position     │
+                   question_text, options[]         │
+                                                    │
+selections ─────────────────────────────────────────┘
+  id, flow_id, submitted_at, message
+
+  └──< selection_answers
+         id, selection_id, module_id, module_type
+         chosen_card_ids[], chosen_option_text
+```
+
+### 5.2 Access Patterns
+
+| Actor | Operation | Mechanism |
+|---|---|---|
+| Creator | Read/write all data | Supabase Auth session + service role in API routes |
+| Selector | Read published flow by token | RLS policy: `status = 'published' AND token = :token` |
+| Selector | Insert selection | RLS policy: `INSERT` allowed on `selections` for any anon user with valid flow token |
+| Public | Read photos | Supabase Storage bucket is public-readable |
+
+### 5.3 Schema Migrations
+
+Managed via the Supabase CLI migration system:
+
+```
+supabase/migrations/
+  20260426000001_initial_schema.sql
+  20260426000002_add_rls_policies.sql
+  20260426000003_add_storage_bucket.sql
+```
+
+Migrations are applied automatically in the production deploy pipeline via `supabase db push`.
+
+---
+
+## 6. Infrastructure Architecture
+
+### 6.1 Environments
+
+| Environment | Branch | URL Pattern | Database |
+|---|---|---|---|
+| Production | `main` | `date-selector.vercel.app` (or custom domain) | Supabase prod project |
+| Preview | PR branches | `date-selector-{hash}.vercel.app` | Supabase prod project (read-only recommended) |
+| Local | local | `localhost:3000` | Supabase local via Docker |
+
+### 6.2 Infrastructure Components (Terraform-managed)
+
+```
+infra/
+  vercel.tf       →  Vercel project, env var references, domain
+  supabase.tf     →  Supabase project, storage bucket
+  variables.tf    →  Input variables
+  outputs.tf      →  Project URL, Supabase URL
+  main.tf         →  Provider versions, Terraform Cloud backend
+```
+
+### 6.3 CI/CD Flow
+
+```
+Developer pushes branch
+         │
+         ▼
+  GitHub Actions: ci.yml
+  ├── ESLint
+  ├── tsc --noEmit
+  └── Vitest
+
+  If /infra/** changed:
+  └── infra-plan.yml → terraform plan → comment on PR
+
+  Vercel: auto-generates preview URL
+         │
+         ▼ (PR merged to main)
+
+  GitHub Actions: deploy.yml
+  ├── If /infra/** changed: terraform apply
+  ├── supabase db push (migrations)
+  └── (Vercel auto-deploys on push to main)
+```
+
+---
+
+## 7. Security
+
+| Concern | Approach |
+|---|---|
+| Creator auth | Supabase Auth (email + password or magic link); JWT stored in httpOnly cookie via `@supabase/ssr` |
+| Selector access | Cryptographically random UUID token in the URL; validated against the `flows` table on every API call |
+| Photo uploads | Creator-only write access via Supabase Storage RLS; signed upload URLs generated server-side |
+| API secrets | Stored in GitHub Actions secrets and Vercel env vars; never committed to the repo |
+| RLS | All database tables have RLS enabled; no table is publicly readable/writable without explicit policy |
+| Draft flows | `status = 'draft'` flows are invisible to anon/selector RLS policies; only the creator can read them |
+
+---
+
+## 8. Key Design Decisions
+
+All significant technology choices are documented in the `/docs/adr/` directory:
+
+| ADR | Decision |
+|---|---|
+| [ADR-001](adr/ADR-001-frontend-framework.md) | Next.js 15 as the frontend framework |
+| [ADR-002](adr/ADR-002-language.md) | TypeScript as the project language |
+| [ADR-003](adr/ADR-003-styling.md) | Tailwind CSS v4 + shadcn/ui for styling |
+| [ADR-004](adr/ADR-004-animations.md) | Framer Motion as the animation library |
+| [ADR-005](adr/ADR-005-backend-database.md) | Supabase for backend, database, and storage |
+| [ADR-006](adr/ADR-006-email-notifications.md) | Resend for transactional email |
+| [ADR-007](adr/ADR-007-hosting.md) | Vercel for hosting |
+| [ADR-008](adr/ADR-008-cicd.md) | GitHub Actions for CI/CD |
+| [ADR-009](adr/ADR-009-infrastructure-as-code.md) | Terraform + Terraform Cloud for IaC |
+
+---
+
+## 9. Out of Scope (v1)
+
+See [PRD.md](../PRD.md) for the full list. From an architecture perspective, the following are explicitly not modeled:
+
+- Multi-tenancy or user accounts beyond the single creator
+- Real-time updates (WebSockets / Supabase Realtime)
+- Mobile native apps
+- Offline support
