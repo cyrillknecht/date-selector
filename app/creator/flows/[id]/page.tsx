@@ -21,6 +21,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { CopyLinkButton } from '@/components/creator/CopyLinkButton'
 
+export const dynamic = 'force-dynamic'
+
 export default async function FlowEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = createServerClient()
