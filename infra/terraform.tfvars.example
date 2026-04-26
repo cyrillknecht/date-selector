@@ -1,0 +1,11 @@
+# Copy this to terraform.tfvars (gitignored) and fill in real values.
+# In CI, these are passed as TF_VAR_* environment variables from GitHub Actions secrets.
+
+vercel_api_token              = "your-vercel-api-token"
+supabase_access_token         = "your-supabase-access-token"
+supabase_project_id           = "your-supabase-project-ref"
+supabase_db_password          = "your-supabase-db-password"
+resend_api_key                = "re_your-resend-api-key"
+next_public_supabase_url      = "https://yourproject.supabase.co"
+next_public_supabase_anon_key = "your-supabase-anon-key"
+supabase_service_role_key     = "your-supabase-service-role-key"
