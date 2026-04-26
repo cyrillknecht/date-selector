@@ -48,7 +48,7 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
       .order('position'),
   ])
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = process.env.APP_URL ?? 'http://localhost:3000'
   const shareUrl = flow.token ? `${appUrl}/${flow.token}` : null
 
   const updateFlowAction = updateFlow.bind(null, id)
