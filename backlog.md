@@ -55,7 +55,22 @@ Button in the creator dashboard to resend the share link email to the selector. 
 
 ---
 
+## Analytics & Insights
+
+### Date Analytics Dashboard *(M)*
+A dedicated `/creator/analytics` page showing aggregate stats across all flows: total selections received, most-picked cards, most common quiz answers, submission rate (link opened vs submitted), avg time to complete a flow. All data is already in the database — this is purely a new read query + UI. Use Recharts or a lightweight charting lib already compatible with the stack.
+
+### Yearly Date Review — "Wrapped" *(L)*
+An annual summary the creator can view (and optionally share). Covers the year's date activity: number of dates planned, how many she said yes to, her most-picked mood tags, a highlight reel of confirmed dates with photos. Rendered as a swipeable full-screen story format (similar to Spotify Wrapped or Instagram Stories). Triggered manually by the creator each year, not auto-generated. Could be shareable as a static page with a short-lived token.
+
+Data needed: `confirmed_at` timestamps, `confirmed_card_id` card photos/titles, `mood_tags` from chosen cards, selection count per flow. All available today. The main work is the story UI.
+
+---
+
 ## Infrastructure & DevOps
+
+### Wire Up Structured Logging *(S)*
+The `docs/operations/observability.md` documents which events should be logged (selection submitted, email sent, flow published, auth failure), but the actual `console.log(JSON.stringify({...}))` calls are missing from the server actions. Only unhandled 500s in API routes are currently logged. Also, `AppError` instances thrown in server actions are silently swallowed with no log entry. Fix: add the documented log calls to `lib/actions/flows.ts` and `lib/actions/submit.ts`, and add an `AppError` log path in `withErrorHandler`.
 
 ### Implement IaC (Terraform) *(L)*
 The `infra/` directory has Terraform files for Vercel and Supabase provisioning, but they may not be actively applied in CI. Wire up `infra-plan.yml` and `infra-apply.yml` GitHub Actions workflows so infrastructure changes go through Terraform Cloud. Add a PR check that runs `terraform plan` and posts the diff as a comment.
