@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, Image } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, ImageIcon } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { updateDecisionModule } from '@/lib/actions/modules'
 import { createCard, updateCard, deleteCard } from '@/lib/actions/cards'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { PhotoUploader } from '@/components/creator/PhotoUploader'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,7 +95,7 @@ export default async function DecisionModuleEditorPage({
 
         {(!cards || cards.length === 0) && (
           <div className="rounded-2xl border-2 border-dashed border-stone-200 p-10 text-center">
-            <Image className="size-8 text-stone-300 mx-auto mb-3" />
+            <ImageIcon className="size-8 text-stone-300 mx-auto mb-3" />
             <p className="text-sm text-stone-400">Add cards to give her options to pick from.</p>
           </div>
         )}
@@ -135,13 +136,8 @@ export default async function DecisionModuleEditorPage({
                     <Textarea name="description" defaultValue={card.description ?? ''} rows={2} placeholder="A short description..." />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">
-                    <Label>Photo URLs <span className="text-stone-400 font-normal">(one per line)</span></Label>
-                    <Textarea
-                      name="photo_urls"
-                      defaultValue={card.photo_urls.join('\n')}
-                      rows={3}
-                      placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"
-                    />
+                    <Label>Photos</Label>
+                    <PhotoUploader initialUrls={card.photo_urls} name="photo_urls" />
                   </div>
                   <div className="sm:col-span-2 flex justify-end">
                     <Button type="submit" variant="outline" size="sm">Save card</Button>
