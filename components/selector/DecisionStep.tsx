@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check, MapPin, DollarSign } from 'lucide-react'
+import { t } from '@/i18n/selector'
 
 type Card = {
   id: string
@@ -45,7 +46,7 @@ export function DecisionStep({
       <div>
         <p className="text-xl font-serif font-semibold text-stone-900">{promptText}</p>
         <p className="text-sm text-stone-400 mt-1">
-          {allowMultiSelect ? 'Select all that you like' : 'Pick your favourite'}
+          {allowMultiSelect ? t.multiSelectHint : t.singleSelectHint}
         </p>
       </div>
 

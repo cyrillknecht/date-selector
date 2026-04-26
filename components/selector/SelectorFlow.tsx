@@ -7,6 +7,7 @@ import { DecisionStep } from './DecisionStep'
 import { QuizStep } from './QuizStep'
 import { ConfettiBlast } from './ConfettiBlast'
 import { submitSelection } from '@/lib/actions/submit'
+import { t } from '@/i18n/selector'
 
 type DecisionModule = {
   type: 'decision'
@@ -125,9 +126,9 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
         >
           <div className="text-6xl mb-6">💕</div>
           <h1 className="text-2xl font-serif font-semibold text-stone-900">
-            {outroMessage || "Can't wait to surprise you!"}
+            {outroMessage || t.defaultOutro}
           </h1>
-          <p className="text-stone-500 text-sm">Your picks have been sent. Get excited!</p>
+          <p className="text-stone-500 text-sm">{t.doneSub}</p>
         </motion.div>
       </div>
     )
@@ -167,17 +168,17 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
               <Heart className="size-12 fill-rose-400 text-rose-400 mx-auto" />
               <div className="space-y-3">
                 <h1 className="text-3xl font-serif font-semibold text-stone-900">
-                  Date Night
+                  {t.heading}
                 </h1>
                 <p className="text-stone-500 leading-relaxed max-w-sm mx-auto">
-                  {introMessage || "Pick your favourites and I'll make it happen."}
+                  {introMessage || t.defaultIntro}
                 </p>
               </div>
               <button
                 onClick={() => go(0)}
                 className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white font-medium px-8 py-3.5 rounded-full transition-colors shadow-lg shadow-rose-200"
               >
-                {"Let's start"}
+                {t.startButton}
                 <ArrowRight className="size-4" />
               </button>
             </motion.div>
@@ -234,26 +235,26 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
               className="space-y-6"
             >
               <div>
-                <p className="text-xl font-serif font-semibold text-stone-900">Anything to add?</p>
-                <p className="text-sm text-stone-400 mt-1">A note, a wish, or just a kiss 💋 (optional)</p>
+                <p className="text-xl font-serif font-semibold text-stone-900">{t.messageHeading}</p>
+                <p className="text-sm text-stone-400 mt-1">{t.messageSub}</p>
               </div>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="I can't wait..."
+                placeholder={t.messagePlaceholder}
                 rows={4}
                 className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-rose-400/50 focus:border-rose-400 resize-none text-sm"
               />
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-red-500">{t.submitError}</p>}
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
                 className="w-full inline-flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-medium px-8 py-3.5 rounded-full transition-colors shadow-lg shadow-rose-200"
               >
                 {submitting ? (
-                  <><Loader2 className="size-4 animate-spin" /> Sending…</>
+                  <><Loader2 className="size-4 animate-spin" /> {t.sending}</>
                 ) : (
-                  <><Send className="size-4" /> Send my picks</>
+                  <><Send className="size-4" /> {t.sendPicks}</>
                 )}
               </button>
             </motion.div>
@@ -270,11 +271,11 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
               className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800 transition-colors px-3 py-2 rounded-lg hover:bg-stone-50"
             >
               <ArrowLeft className="size-4" />
-              Back
+              {t.back}
             </button>
 
             <span className="text-xs text-stone-300">
-              {isMessageStep ? 'Almost there' : `${step + 1} of ${totalModules}`}
+              {isMessageStep ? t.almostThere : t.stepOf(step + 1, totalModules)}
             </span>
 
             {!isMessageStep && (
@@ -283,7 +284,7 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
                 disabled={!canProceed()}
                 className="flex items-center gap-1.5 text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
               >
-                Next
+                {t.next}
                 <ArrowRight className="size-4" />
               </button>
             )}
