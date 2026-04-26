@@ -2,7 +2,10 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Check, MapPin, DollarSign, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import {
+  Check, MapPin, DollarSign,
+  ChevronDown, ChevronLeft, ChevronRight, ExternalLink,
+} from 'lucide-react'
 import { t } from '@/i18n/selector'
 
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v']
@@ -30,30 +33,78 @@ interface DecisionStepProps {
   initialSelection?: string[]
 }
 
-function CardExpandPanel({ card }: { card: Card }) {
+function MediaCarousel({ urls, title }: { urls: string[]; title: string }) {
+  const [index, setIndex] = useState(0)
+  const total = urls.length
+
+  if (!total) {
+    return (
+      <div className="aspect-[4/3] bg-stone-100 flex items-center justify-center">
+        <span className="text-4xl">💕</span>
+      </div>
+    )
+  }
+
+  const url = urls[index]
+
   return (
-    <div className="px-3 pb-3 bg-white space-y-2">
-      {/* Photo gallery */}
-      {card.photo_urls.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-          {card.photo_urls.slice(1).map((url, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={url}
-              alt=""
-              className="h-16 w-16 object-cover rounded-lg shrink-0"
-            />
-          ))}
-        </div>
+    <div className="aspect-[4/3] bg-stone-100 relative overflow-hidden">
+      {isVideo(url) ? (
+        <video
+          key={url}
+          src={url}
+          className="w-full h-full object-cover"
+          muted
+          playsInline
+          loop
+          autoPlay
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={url} src={url} alt={title} className="w-full h-full object-cover" />
       )}
 
-      {/* Full description */}
+      {total > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIndex((index - 1 + total) % total) }}
+            className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-0.5 text-white transition-colors"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIndex((index + 1) % total) }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-0.5 text-white transition-colors"
+            aria-label="Next"
+          >
+            <ChevronRight className="size-3.5" />
+          </button>
+          <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 pointer-events-none">
+            {urls.map((_, i) => (
+              <span
+                key={i}
+                className={`rounded-full transition-all duration-200 ${
+                  i === index ? 'w-3 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function CardExpandPanel({ card, onSelect, isSelected }: { card: Card; onSelect: () => void; isSelected: boolean }) {
+  return (
+    <div className="px-3 pb-3 bg-white space-y-2">
       {card.description && (
         <p className="text-xs text-stone-600 leading-relaxed">{card.description}</p>
       )}
 
-      {/* Meta */}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {card.location && (
           <span className="inline-flex items-center gap-0.5 text-xs text-stone-500">
@@ -67,7 +118,6 @@ function CardExpandPanel({ card }: { card: Card }) {
         )}
       </div>
 
-      {/* Mood tags */}
       {card.mood_tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {card.mood_tags.map((tag) => (
@@ -78,7 +128,6 @@ function CardExpandPanel({ card }: { card: Card }) {
         </div>
       )}
 
-      {/* Link */}
       {card.url && (
         <a
           href={card.url}
@@ -91,8 +140,31 @@ function CardExpandPanel({ card }: { card: Card }) {
           Mehr Info
         </a>
       )}
+
+      {/* Mobile select button — only rendered inside the mobile expand panel */}
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`sm:hidden w-full rounded-xl py-2 text-sm font-medium transition-colors ${
+          isSelected
+            ? 'bg-rose-500 text-white'
+            : 'bg-stone-100 text-stone-700 active:bg-stone-200'
+        }`}
+      >
+        {isSelected ? '✓ Gwählt' : 'Wähle'}
+      </button>
     </div>
   )
+}
+
+const expandVariants = {
+  collapsed: { opacity: 0, height: 0 },
+  expanded: { opacity: 1, height: 'auto' },
+}
+
+const expandTransition = {
+  height: { type: 'spring', stiffness: 300, damping: 32, mass: 0.8 },
+  opacity: { duration: 0.15, ease: 'easeOut' },
 }
 
 export function DecisionStep({
@@ -133,134 +205,98 @@ export function DecisionStep({
           const isSelected = selected.includes(card.id)
           const isExpanded = expandedCardId === card.id
           const isHovered = hoveredCardId === card.id
-          const hasExtra = card.description || card.location || card.price_range || card.url || card.mood_tags.length > 0 || card.photo_urls.length > 1
+          const hasExtra = card.description || card.location || card.price_range || card.url || card.mood_tags.length > 0
 
           return (
-            <motion.div
+            <div
               key={card.id}
-              layout={!prefersReducedMotion}
               className={`relative rounded-2xl overflow-hidden border-2 text-left transition-colors duration-200 ${
                 isSelected
                   ? 'border-rose-400 shadow-[0_0_0_4px_rgba(251,113,133,0.15)]'
                   : 'border-stone-200'
-              } ${isExpanded ? 'col-span-2 sm:col-span-1' : ''}`}
+              }`}
               onMouseEnter={() => setHoveredCardId(card.id)}
               onMouseLeave={() => setHoveredCardId(null)}
             >
-              {/* Main card — click selects on desktop */}
+              {/* Main tap — always selects */}
               <button
                 type="button"
                 onClick={() => toggle(card.id)}
                 className="w-full text-left"
               >
-                {/* Photo */}
-                <div className="aspect-[4/3] bg-stone-100 relative">
-                  {card.photo_urls[0] ? (
-                    isVideo(card.photo_urls[0]) ? (
-                      <video
-                        src={card.photo_urls[0]}
-                        className="w-full h-full object-cover"
-                        muted
-                        playsInline
-                        loop
-                        autoPlay
-                      />
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={card.photo_urls[0]}
-                        alt={card.title}
-                        className="w-full h-full object-cover"
-                      />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-4xl">💕</span>
-                    </div>
-                  )}
-                  {isSelected && (
-                    <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center">
-                      <div className="size-8 rounded-full bg-rose-500 flex items-center justify-center shadow-lg">
-                        <Check className="size-4 text-white" strokeWidth={3} />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <MediaCarousel urls={card.photo_urls} title={card.title} />
 
-                {/* Title row */}
-                <div className="px-3 pt-3 pb-1 bg-white">
-                  <p className="font-medium text-stone-900 text-sm leading-tight">{card.title}</p>
+                <div className="relative px-3 pt-2.5 pb-1 bg-white">
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 size-5 rounded-full bg-rose-500 flex items-center justify-center shadow">
+                      <Check className="size-3 text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                  <p className="font-medium text-stone-900 text-sm leading-tight pr-6">{card.title}</p>
                 </div>
               </button>
 
-              {/* Expand toggle — only shown when NOT hovered (i.e. on mobile) */}
+              {/* Mobile-only expand chevron */}
               {hasExtra && (
                 <button
                   type="button"
                   onClick={() => toggleExpand(card.id)}
-                  className="sm:hidden w-full flex items-center justify-center pb-2 text-stone-400 active:text-stone-600"
                   aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                  className="sm:hidden w-full flex justify-center pb-2 bg-white text-stone-400 active:text-stone-600"
                 >
-                  {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  <motion.div
+                    animate={{ rotate: isExpanded ? 180 : 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  >
+                    <ChevronDown className="size-3.5" />
+                  </motion.div>
                 </button>
               )}
 
-              {/* Desktop: show expanded panel on hover (hidden on mobile via sm:block) */}
+              {/* Desktop hover expand */}
               {hasExtra && (
-                <div className="hidden sm:block">
-                  <AnimatePresence>
+                <div className="hidden sm:block overflow-hidden">
+                  <AnimatePresence initial={false}>
                     {isHovered && (
                       <motion.div
                         key="desktop-expand"
-                        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, height: 'auto' }}
-                        exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="overflow-hidden"
+                        variants={prefersReducedMotion ? undefined : expandVariants}
+                        initial="collapsed"
+                        animate="expanded"
+                        exit="collapsed"
+                        transition={prefersReducedMotion ? undefined : expandTransition}
+                        style={{ overflow: 'hidden' }}
                       >
-                        <CardExpandPanel card={card} />
+                        <CardExpandPanel card={card} onSelect={() => toggle(card.id)} isSelected={isSelected} />
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
               )}
 
-              {/* Mobile: show expanded panel when isExpanded (hidden on desktop via sm:hidden) */}
+              {/* Mobile tap expand */}
               {hasExtra && (
-                <div className="sm:hidden">
-                  <AnimatePresence>
+                <div className="sm:hidden overflow-hidden">
+                  <AnimatePresence initial={false}>
                     {isExpanded && (
                       <motion.div
                         key="mobile-expand"
-                        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, height: 'auto' }}
-                        exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                        className="overflow-hidden"
+                        variants={prefersReducedMotion ? undefined : expandVariants}
+                        initial="collapsed"
+                        animate="expanded"
+                        exit="collapsed"
+                        transition={prefersReducedMotion ? undefined : expandTransition}
+                        style={{ overflow: 'hidden' }}
                       >
-                        <CardExpandPanel card={card} />
-                        <div className="px-3 pb-3">
-                          <button
-                            type="button"
-                            onClick={() => toggle(card.id)}
-                            className={`w-full rounded-xl py-2 text-sm font-medium transition-colors ${
-                              isSelected
-                                ? 'bg-rose-500 text-white'
-                                : 'bg-stone-100 text-stone-700 active:bg-stone-200'
-                            }`}
-                          >
-                            {isSelected ? '✓ Gwählt' : 'Wähle'}
-                          </button>
-                        </div>
+                        <CardExpandPanel card={card} onSelect={() => toggle(card.id)} isSelected={isSelected} />
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
               )}
 
-              {/* Spacer for mobile when no expand button */}
-              {!hasExtra && <div className="pb-3 bg-white" />}
-            </motion.div>
+              {!hasExtra && <div className="pb-2 bg-white" />}
+            </div>
           )
         })}
       </div>
