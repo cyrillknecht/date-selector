@@ -56,3 +56,23 @@ export async function unpublishFlow(id: string) {
     .eq('id', id)
   revalidatePath(`/creator/flows/${id}`)
 }
+
+export async function confirmDate(id: string, formData: FormData) {
+  const supabase = createServerClient()
+  const confirmedCardId = formData.get('confirmed_card_id') as string
+  const confirmedAt = formData.get('confirmed_at') as string
+  const meetingPoint = (formData.get('meeting_point') as string).trim() || null
+
+  if (!confirmedCardId || !confirmedAt) return
+
+  await supabase
+    .from('flows')
+    .update({
+      confirmed_card_id: confirmedCardId,
+      confirmed_at: new Date(confirmedAt).toISOString(),
+      meeting_point: meetingPoint,
+    })
+    .eq('id', id)
+
+  revalidatePath(`/creator/flows/${id}`)
+}

@@ -27,4 +27,10 @@ export const t = {
   // Done screen
   defaultOutro:    "Freui dich uf e überraschig🐒🍌♥️",
   doneSub:         'Dini Date-Wahl isch verschickt worde. Ich freui mich jetzt scho unglaublich uf s euises Date🐒🍌♥️',
+
+  // Confirmed date screen
+  confirmedHeading: 'Euses Date isch beschtätiget! 🎉',
+  confirmedSub:     'Ich freui mich mega uf euses Date♥️',
+  confirmedWhen:    'Wänn',
+  confirmedWhere:   'Wo',
 }

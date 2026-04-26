@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, Layers, HelpCircle, Globe, EyeOff } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Layers, HelpCircle, Globe, EyeOff, Heart } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import {
   updateFlow,
   publishFlow,
   unpublishFlow,
   archiveFlow,
+  confirmDate,
 } from '@/lib/actions/flows'
 import {
   createDecisionModule,
@@ -35,7 +36,7 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
 
   if (!flow) notFound()
 
-  const [{ data: decisionModules }, { data: quizModules }] = await Promise.all([
+  const [{ data: decisionModules }, { data: quizModules }, { data: selection }] = await Promise.all([
     supabase
       .from('decision_modules')
       .select('id, prompt_text, allow_multi_select, position')
@@ -46,7 +47,24 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
       .select('id, title, position')
       .eq('flow_id', id)
       .order('position'),
+    supabase
+      .from('selections')
+      .select('id, message, submitted_at, selection_answers(module_type, chosen_card_ids)')
+      .eq('flow_id', id)
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
+
+  // Fetch all decision module cards for the confirm-date card picker
+  const decisionIds = decisionModules?.map((m) => m.id) ?? []
+  const { data: allCards } = decisionIds.length > 0
+    ? await supabase
+        .from('cards')
+        .select('id, title, decision_module_id, photo_urls')
+        .in('decision_module_id', decisionIds)
+        .order('position')
+    : { data: [] }
 
   const appUrl = process.env.APP_URL ?? 'http://localhost:3000'
   const shareUrl = flow.token ? `${appUrl}/${flow.token}` : null
@@ -57,6 +75,7 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
   const archiveAction = archiveFlow.bind(null, id)
   const addDecisionAction = createDecisionModule.bind(null, id)
   const addQuizAction = createQuizModule.bind(null, id)
+  const confirmDateAction = confirmDate.bind(null, id)
 
   return (
     <div className="space-y-8">
@@ -135,6 +154,113 @@ export default async function FlowEditorPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       </section>
+
+      {/* Selection + Confirm Date */}
+      {flow.status === 'published' && (
+        <section className="rounded-2xl border border-rose-100 bg-white p-6 space-y-5">
+          <h2 className="font-serif font-semibold text-stone-800 flex items-center gap-2">
+            <Heart className="size-5 text-rose-400" />
+            Confirm Date
+          </h2>
+
+          {selection ? (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-stone-50 border border-stone-100 p-4 text-sm text-stone-600 space-y-1">
+                <p className="font-medium text-stone-800">She submitted her picks 🎉</p>
+                {selection.message && (
+                  <p className="italic text-stone-500">&ldquo;{selection.message}&rdquo;</p>
+                )}
+                <p className="text-xs text-stone-400">
+                  {new Date(selection.submitted_at).toLocaleString('de-CH', {
+                    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+              </div>
+
+              {/* Chosen cards */}
+              {(selection.selection_answers ?? [])
+                .filter((a) => a.module_type === 'decision' && (a.chosen_card_ids ?? []).length > 0)
+                .flatMap((a) => a.chosen_card_ids ?? [])
+                .map((cardId) => {
+                  const card = (allCards ?? []).find((c) => c.id === cardId)
+                  if (!card) return null
+                  return (
+                    <div key={cardId} className="flex items-center gap-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                      {card.photo_urls[0] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={card.photo_urls[0]} alt={card.title} className="size-10 rounded-lg object-cover shrink-0" />
+                      )}
+                      <p className="text-sm font-medium text-stone-800">{card.title}</p>
+                    </div>
+                  )
+                })
+              }
+            </div>
+          ) : (
+            <p className="text-sm text-stone-400">Waiting for her to submit her picks...</p>
+          )}
+
+          {/* Confirm form — show even without selection, allow pre-confirming */}
+          {flow.confirmed_card_id ? (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-4 text-sm text-emerald-700 space-y-1">
+              <p className="font-medium">Date confirmed ✓</p>
+              {flow.confirmed_at && (
+                <p>{new Date(flow.confirmed_at).toLocaleString('de-CH', {
+                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                })}</p>
+              )}
+              {flow.meeting_point && <p>{flow.meeting_point}</p>}
+            </div>
+          ) : null}
+
+          <form action={confirmDateAction} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmed_card_id">Activity / Card</Label>
+              <select
+                id="confirmed_card_id"
+                name="confirmed_card_id"
+                required
+                defaultValue={flow.confirmed_card_id ?? ''}
+                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+              >
+                <option value="" disabled>Select a card…</option>
+                {(allCards ?? []).map((card) => (
+                  <option key={card.id} value={card.id}>{card.title}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmed_at">Date &amp; Time</Label>
+              <Input
+                id="confirmed_at"
+                name="confirmed_at"
+                type="datetime-local"
+                required
+                defaultValue={flow.confirmed_at
+                  ? new Date(flow.confirmed_at).toISOString().slice(0, 16)
+                  : '2026-05-03T10:00'
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="meeting_point">Meeting point <span className="text-stone-400 font-normal">(optional)</span></Label>
+              <Input
+                id="meeting_point"
+                name="meeting_point"
+                placeholder="Hauptbahnhof Zürich, Gleis 9"
+                defaultValue={flow.meeting_point ?? ''}
+              />
+            </div>
+
+            <Button type="submit" size="sm" className="bg-rose-500 hover:bg-rose-600 text-white gap-1.5">
+              <Heart className="size-4" />
+              {flow.confirmed_card_id ? 'Update confirmation' : 'Confirm date'}
+            </Button>
+          </form>
+        </section>
+      )}
 
       {/* Decision Modules */}
       <section className="rounded-2xl border border-stone-200 bg-white p-6 space-y-4">

@@ -119,9 +119,12 @@ export type Database = {
       flows: {
         Row: {
           archived_at: string | null
+          confirmed_at: string | null
+          confirmed_card_id: string | null
           created_at: string
           id: string
           intro_message: string | null
+          meeting_point: string | null
           outro_message: string | null
           published_at: string | null
           status: string
@@ -130,9 +133,12 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          confirmed_at?: string | null
+          confirmed_card_id?: string | null
           created_at?: string
           id?: string
           intro_message?: string | null
+          meeting_point?: string | null
           outro_message?: string | null
           published_at?: string | null
           status?: string
@@ -141,16 +147,27 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          confirmed_at?: string | null
+          confirmed_card_id?: string | null
           created_at?: string
           id?: string
           intro_message?: string | null
+          meeting_point?: string | null
           outro_message?: string | null
           published_at?: string | null
           status?: string
           title?: string
           token?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "flows_confirmed_card_id_fkey"
+            columns: ["confirmed_card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_modules: {
         Row: {

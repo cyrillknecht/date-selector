@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { SelectorFlow } from '@/components/selector/SelectorFlow'
+import { ConfirmedDatePage } from '@/components/selector/ConfirmedDatePage'
 
 export default async function SelectorPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -9,12 +10,32 @@ export default async function SelectorPage({ params }: { params: Promise<{ token
   // Fetch the published flow by token
   const { data: flow } = await supabase
     .from('flows')
-    .select('id, title, intro_message, outro_message, status')
+    .select('id, title, intro_message, outro_message, status, confirmed_card_id, confirmed_at, meeting_point')
     .eq('token', token)
     .eq('status', 'published')
     .single()
 
   if (!flow) notFound()
+
+  // If the creator has confirmed the date, show the confirmed date page
+  if (flow.confirmed_card_id && flow.confirmed_at) {
+    const { data: confirmedCard } = await supabase
+      .from('cards')
+      .select('id, title, description, location, price_range, mood_tags, photo_urls')
+      .eq('id', flow.confirmed_card_id)
+      .single()
+
+    if (confirmedCard) {
+      return (
+        <ConfirmedDatePage
+          outroMessage={flow.outro_message}
+          confirmedCard={confirmedCard}
+          confirmedAt={flow.confirmed_at}
+          meetingPoint={flow.meeting_point}
+        />
+      )
+    }
+  }
 
   // Fetch all modules in parallel
   const [{ data: decisionMods }, { data: quizMods }] = await Promise.all([
