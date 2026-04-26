@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Check, MapPin, DollarSign } from 'lucide-react'
+import { t } from '@/i18n/selector'
 
 type Card = {
   id: string
@@ -30,6 +31,7 @@ export function DecisionStep({
   initialSelection = [],
 }: DecisionStepProps) {
   const [selected, setSelected] = useState<string[]>(initialSelection)
+  const prefersReducedMotion = useReducedMotion()
 
   function toggle(id: string) {
     const next = allowMultiSelect
@@ -44,7 +46,7 @@ export function DecisionStep({
       <div>
         <p className="text-xl font-serif font-semibold text-stone-900">{promptText}</p>
         <p className="text-sm text-stone-400 mt-1">
-          {allowMultiSelect ? 'Select all that you like' : 'Pick your favourite'}
+          {allowMultiSelect ? t.multiSelectHint : t.singleSelectHint}
         </p>
       </div>
 
@@ -56,7 +58,7 @@ export function DecisionStep({
               key={card.id}
               type="button"
               onClick={() => toggle(card.id)}
-              whileTap={{ scale: 0.97 }}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
               className={`relative rounded-2xl overflow-hidden border-2 text-left transition-all duration-200 ${
                 isSelected
                   ? 'border-rose-400 shadow-[0_0_0_4px_rgba(251,113,133,0.15)]'

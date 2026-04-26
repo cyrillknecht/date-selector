@@ -4,154 +4,99 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## Project Status
-
-Pre-implementation. All documentation is in place; the Next.js application has not been scaffolded yet. Update this file with real commands once `pnpm create next-app` is run.
-
----
-
-## Planned Commands
-
-These are defined in [`docs/operations/testing-strategy.md`](docs/operations/testing-strategy.md) and should be wired up during scaffolding:
+## Commands
 
 ```bash
 pnpm dev                  # local dev server (localhost:3000)
 pnpm build                # production build
 pnpm lint                 # ESLint
 pnpm typecheck            # tsc --noEmit
-pnpm test                 # Vitest (unit + component)
-pnpm test:integration     # Vitest against local Supabase (requires supabase start)
-pnpm test:e2e             # Playwright (requires supabase start + pnpm dev)
-pnpm test:all             # all of the above
+pnpm test                 # Vitest unit + component tests (jsdom, passWithNoTests)
+pnpm test:e2e             # Playwright E2E (spins up pnpm dev automatically)
 
+# Single test file
+pnpm test __tests__/lib/utils.test.ts
+
+# Supabase local stack
 supabase start            # spin up local Postgres + Auth + Storage
-supabase db push          # apply migrations to local instance
-supabase gen types typescript --local > types/database.ts  # regenerate DB types
+supabase db push --password <pw> --yes  # apply migrations to local
+supabase gen types typescript --local 2>/dev/null > types/database.ts
 ```
 
 ---
 
-## Architecture Overview
+## Architecture
 
-Two distinct surfaces in one Next.js App Router codebase:
+Two distinct surfaces in one Next.js 16 App Router codebase (TypeScript, Tailwind CSS v4, shadcn/ui):
 
-- **Creator dashboard** — `app/(creator)/` — authenticated via Supabase JWT (httpOnly cookie). Server + Client Components. All mutations go through API routes, never direct DB from the client.
-- **Selector experience** — `app/(selector)/[token]/` — no login. Access gated by a UUID token in the URL path. Token is validated on every page load AND on submission (twice, by design).
+- **Creator dashboard** — `app/creator/` — authenticated via Supabase JWT (httpOnly cookie). All mutations use Server Actions. `export const dynamic = 'force-dynamic'` on every page to prevent stale static pre-rendering.
+- **Selector experience** — `app/(selector)/[token]/` — no login. Access gated by a UUID token in the URL. Token validated on page load and again on submission.
 
-The full architecture is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). C4 diagrams are in [`docs/c4/`](docs/c4/).
-
----
-
-## Key Structural Decisions
-
-**Route layout (planned):**
+### Route layout
 ```
 app/
-  (creator)/layout.tsx        ← auth guard via next/middleware
-  (creator)/dashboard/
-  (creator)/flows/[id]/
-  (selector)/[token]/         ← public, token-gated
-  api/flows/                  ← creator-only (JWT required)
-  api/upload/                 ← creator-only (JWT required)
-  api/selections/             ← public write (token validated server-side)
+  creator/layout.tsx          ← auth guard (middleware.ts redirects to /login)
+  creator/dashboard/
+  creator/flows/[id]/
+  (selector)/[token]/         ← public, token-gated; (selector) is a route group, no URL segment
+  login/                      ← LoginForm wrapped in <Suspense> for useSearchParams
+  api/upload/                 ← multipart upload to Supabase Storage, returns { url }
 ```
 
-**Two Supabase clients — never mix them:**
-- Server-side (API routes, Server Components): service role key, bypasses RLS
-- Browser (Client Components): anon key, subject to RLS
+`(creator)` was renamed to `creator` (no parens) because route groups with `()` add no URL segment — `/creator/dashboard` requires the literal `creator/` in the path.
 
-**Photo uploads bypass the server:** the browser requests a signed URL from `/api/upload`, then PUTs the file directly to Supabase Storage. The returned `publicUrl` is stored on the card.
+### Two Supabase clients — never mix them
+- `createServerClient()` — service role key, bypasses RLS; use in Server Components, Server Actions, API routes
+- `createSessionClient()` — cookie-aware SSR client; use for auth checks only
 
-**Selection submission is atomic:** the selector's entire flow is held in React state. Nothing is written to the DB during navigation — one POST at the end with the complete payload. This avoids partial submissions.
+### Key patterns
+- **Photo uploads**: browser POSTs to `/api/upload` → validates session + file → uploads to `date-photos` Supabase Storage bucket → returns `{ url }`. `PhotoUploader` bridges client state to server action via a hidden `<input type="hidden" name="..." value={urls.join('\n')} />`.
+- **Selection submission is atomic**: entire flow held in React state; one server action call at the end.
+- **`NEXT_PUBLIC_*` vars are compile-time constants**: use `APP_URL` (no prefix) for server-runtime env vars like share link generation.
+- **Animations**: Framer Motion `AnimatePresence` for slide transitions; `useReducedMotion()` toggles to fade-only variants when `prefers-reduced-motion` is set.
+- **Published flows are locked**: server actions reject mutations on published flows with a `FLOW_LOCKED` `AppError`.
 
-**Published flows are locked:** `PATCH` on modules/cards returns `423 Locked` if `flow.status = 'published'`. The creator must unpublish first.
+### Error handling
+All API routes use `withErrorHandler` from `lib/errors.ts`. Throw `AppError` for expected failures. Unknown errors return 500 with no internal details exposed. Logs are structured JSON via `console.log(JSON.stringify({ level, event, ... }))`.
+
+---
+
+## Deployment
+
+- **Production URL**: `https://date-selector-selector.vercel.app`
+- **Vercel project**: `date-selector-selector` (`prj_nnA2v8ersWQnDJ651F7k0WOl3Qzx`)
+- **Supabase project**: `htztpctkkjfyobrbhdld`
+- **CI**: `.github/workflows/ci.yml` — lint + typecheck + Vitest on all non-main branches
+- **Deploy**: `.github/workflows/deploy.yml` — `supabase link` + `supabase db push` on main push
+
+### Required environment variables
+| Variable | Where used |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Client + server Supabase client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only (never `NEXT_PUBLIC_`) |
+| `APP_URL` | Server-side share link generation (e.g. `https://date-selector-selector.vercel.app`) |
+| `RESEND_API_KEY` | Email notifications |
 
 ---
 
 ## Domain Language
 
-Use these terms exactly in code (variables, function names, comments). From [`docs/domain/glossary.md`](docs/domain/glossary.md):
-
 | Term | Meaning |
 |---|---|
-| `Flow` | The top-level entity — one complete date selection experience |
-| `Module` | A single step in a flow (either a Decision Module or Quiz Module) |
-| `DecisionModule` | A step presenting the selector with Cards to choose from |
-| `QuizModule` | A step presenting the selector with preference Questions |
-| `Card` | One option within a Decision Module (a specific restaurant, activity, etc.) |
-| `Question` | One preference prompt within a Quiz Module |
-| `Selection` | The completed submission from the selector |
-| `Answer` | One answer within a Selection (chosen card IDs or chosen option text) |
-| `Creator` | The authenticated user who builds flows (Cyrill) |
+| `Flow` | Top-level entity — one complete date selection experience |
+| `Module` | A single step (Decision or Quiz) |
+| `Card` | One option within a Decision Module |
+| `Selection` | Completed submission from the selector |
+| `Token` | UUID in the share URL that grants selector access |
+| `Creator` | Authenticated user who builds flows |
 | `Selector` | The girlfriend — no account, accesses via token URL |
-| `Token` | The UUID in the share URL that grants selector access |
 
 ---
 
-## Data Model
+## Security
 
-Full ERD in [`docs/data/ERD.md`](docs/data/ERD.md), column-level reference in [`docs/data/data-dictionary.md`](docs/data/data-dictionary.md).
-
-Core hierarchy: `flows` → `decision_modules` / `quiz_modules` → `cards` / `quiz_questions` → `selections` → `selection_answers`
-
-Modules from both types share a `position` field relative to their parent flow. The `FlowController` merges and sorts them by position to determine step order.
-
-DB types are auto-generated: `supabase gen types typescript --local > types/database.ts`. Never write DB types by hand.
-
----
-
-## API Conventions
-
-Full spec in [`docs/api/openapi.yaml`](docs/api/openapi.yaml), conventions in [`docs/api/api-design.md`](docs/api/api-design.md).
-
-- JSON keys: `camelCase` in requests/responses, mapped from `snake_case` DB columns at the boundary
-- All errors: `{ error: string, code: string, field?: string }` — see `ErrorCode` enum
-- All IDs: `uuid v4` strings
-- All timestamps: ISO 8601 UTC strings
-- Creator routes: validate JWT from cookie via `@supabase/ssr`, never from `Authorization` header
-
----
-
-## Error Handling Pattern
-
-Documented in [`docs/operations/error-handling.md`](docs/operations/error-handling.md).
-
-All API routes use a shared `withErrorHandler` wrapper. Throw `AppError` for expected failures (404, 409, 422, 423). Unhandled errors are caught by the wrapper, logged, and returned as 500 with a generic message — never expose DB errors or stack traces to the client.
-
-All logs are structured JSON: `console.log(JSON.stringify({ level, event, ...fields }))`. No bare `console.log` in production paths.
-
----
-
-## Security Constraints
-
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only — never prefix with `NEXT_PUBLIC_`, never pass to client components
-- Flow tokens are logged as first 8 chars only
-- Selection content (answers, messages) is never logged
-- Security headers set in `next.config.ts` — do not remove them
-
-Full threat model: [`docs/security/threat-model.md`](docs/security/threat-model.md)
-Auth design: [`docs/security/auth-design.md`](docs/security/auth-design.md)
-
----
-
-## Branching & Commits
-
-From [`docs/operations/branching-strategy.md`](docs/operations/branching-strategy.md):
-
-Branch naming: `<type>/<kebab-description>` — types: `feat`, `fix`, `chore`, `infra`, `docs`
-
-Commit format (Conventional Commits):
-```
-feat(selector): add swipe gesture to card navigation
-fix(api): return 409 on duplicate selection submission
-```
-
-All changes go through a PR. Squash merge only. No direct pushes to `main`.
-
----
-
-## Infrastructure
-
-Terraform config lives in `/infra/`. Managed resources: Vercel project + env vars, Supabase project + storage bucket. DB schema is managed separately via Supabase migrations in `supabase/migrations/` — not via Terraform.
-
-Terraform is applied automatically in CI when `/infra/**` files change. Never run `terraform apply` locally against production without checking CI state first.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only — never pass to client components
+- Flow tokens logged as first 8 chars only
+- Selection content (answers, messages) never logged
+- Security headers set in `next.config.ts` — do not remove

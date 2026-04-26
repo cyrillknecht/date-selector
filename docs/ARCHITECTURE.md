@@ -56,7 +56,7 @@ The system has two types of users and no external integrations beyond email deli
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| Framework | Next.js 15 (App Router) | SSR + API routes in one, first-class Vercel support |
+| Framework | Next.js 16 (App Router) | SSR + API routes in one, first-class Vercel support |
 | Language | TypeScript | Type safety across DB ↔ API ↔ UI boundary |
 | Styling | Tailwind CSS v4 + shadcn/ui | Zero-runtime utility CSS + owned UI primitives |
 | Animations | Framer Motion + canvas-confetti | Declarative gestures, layout animations, exit transitions |
@@ -76,31 +76,35 @@ The system has two types of users and no external integrations beyond email deli
 
 ```
 app/
-  (creator)/               # Route group — requires auth
-    layout.tsx             # Auth guard + dashboard shell
+  creator/                 # Auth-required routes (no route group parens — needed for /creator/* URLs)
+    layout.tsx             # Auth guard + dashboard shell; all pages use force-dynamic
     dashboard/
       page.tsx             # Flow list + status overview
     flows/
-      new/page.tsx         # Create flow
       [id]/
         page.tsx           # Edit flow (cards, modules, settings)
         preview/page.tsx   # Preview the selector experience
     selections/
       [flowId]/page.tsx    # View all submissions for a flow
 
-  (selector)/              # Route group — public, token-gated
+  (selector)/              # Route group — public, token-gated; parens collapse URL segment
     [token]/
-      page.tsx             # Selector landing (intro message)
-      flow/
-        page.tsx           # Flow step controller
-      done/page.tsx        # Confirmation screen
+      page.tsx             # Full selector experience (SelectorFlow client component)
+
+  login/
+    page.tsx               # Server component wrapper
+    LoginForm.tsx          # 'use client' — wrapped in <Suspense> for useSearchParams
 
   api/
-    flows/route.ts         # CRUD for flows
-    flows/[id]/publish/    # Publish a flow, generate token
-    selections/route.ts    # POST selection (called by selector)
-    upload/route.ts        # Signed URL generation for photo upload
+    upload/route.ts        # Validate session + file, upload to date-photos bucket, return { url }
 ```
+
+**Key routing decisions:**
+- `creator/` has no parentheses — `(creator)/` would strip the segment and break `/creator/dashboard`
+- `(selector)/` keeps parens — the token IS the URL segment, no prefix needed
+- All `creator/` pages export `const dynamic = 'force-dynamic'` to prevent stale static rendering
+
+**Mutations via Server Actions** (not API routes) for all creator operations — auth is implicit via SSR cookie.
 
 ### 4.2 Component Architecture
 
@@ -232,9 +236,12 @@ Developer pushes branch
          ▼ (PR merged to main)
 
   GitHub Actions: deploy.yml
-  ├── If /infra/** changed: terraform apply
-  ├── supabase db push (migrations)
+  ├── supabase link --project-ref $SUPABASE_PROJECT_ID
+  ├── supabase db push --password $SUPABASE_DB_PASSWORD --yes
   └── (Vercel auto-deploys on push to main)
+
+Production URL: https://date-selector-selector.vercel.app
+Supabase project: htztpctkkjfyobrbhdld
 ```
 
 ---
