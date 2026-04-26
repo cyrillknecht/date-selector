@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, MapPin, DollarSign } from 'lucide-react'
 
@@ -30,8 +30,6 @@ export function DecisionStep({
   initialSelection = [],
 }: DecisionStepProps) {
   const [selected, setSelected] = useState<string[]>(initialSelection)
-
-  useEffect(() => { setSelected(initialSelection) }, [initialSelection.join(',')])
 
   function toggle(id: string) {
     setSelected((prev) => {

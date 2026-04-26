@@ -169,7 +169,7 @@ export function SelectorFlow({ flowId, introMessage, outroMessage, modules }: Se
                 onClick={() => go(0)}
                 className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white font-medium px-8 py-3.5 rounded-full transition-colors shadow-lg shadow-rose-200"
               >
-                Let's start
+                {"Let's start"}
                 <ArrowRight className="size-4" />
               </button>
             </motion.div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 type Question = {
   id: string
@@ -17,8 +17,6 @@ interface QuizStepProps {
 
 export function QuizStep({ title, questions, onAnswer, initialAnswers = {} }: QuizStepProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers)
-
-  useEffect(() => { setAnswers(initialAnswers) }, [JSON.stringify(initialAnswers)])
 
   function pick(questionText: string, option: string) {
     const next = { ...answers, [questionText]: option }

@@ -102,7 +102,7 @@ export function SelectionEmail({ flowTitle, message, answers }: SelectionEmailPr
                   Her message
                 </Text>
                 <Text style={{ fontSize: 15, color: '#1f1a18', margin: 0, fontStyle: 'italic' }}>
-                  "{message}"
+                  &ldquo;{message}&rdquo;
                 </Text>
               </Section>
             </>
