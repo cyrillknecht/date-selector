@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Date Night Selector
 
-## Getting Started
+A private, animated web app for curating romantic date options. The creator builds a flow of decision steps (card picks) and quiz questions; the selector (the girlfriend) opens a token-gated link, makes her choices, and submits — the creator gets an email with everything she picked.
 
-First, run the development server:
+**Production:** https://date-selector-selector.vercel.app
+
+---
+
+## Local Development
+
+Requires Node 20+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test         # Vitest (unit + component)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.local.example` to `.env.local` and fill in:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-only) |
+| `RESEND_API_KEY` | Resend email API key |
+| `APP_URL` | Base URL for share link generation |
+| `CREATOR_EMAIL` | Where selection notification emails are sent |
 
-## Learn More
+### Supabase local stack
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+supabase start
+supabase db push --password <pw> --yes
+supabase gen types typescript --local > types/database.ts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+Two surfaces in one Next.js 16 App Router codebase:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Creator** (`/creator/*`) — authenticated via Supabase Auth. Builds flows, views selections, confirms the date.
+- **Selector** (`/[token]`) — no login. Access gated by a UUID token in the URL.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for full details.
+
+---
+
+## Deployment
+
+Merging to `main` triggers the GitHub Actions deploy pipeline:
+1. Lint + typecheck + tests
+2. `supabase db push` (applies pending migrations)
+3. `vercel deploy --prod`
+
+### Manual steps after first deploy
+
+- Enable Google OAuth in the Supabase dashboard: **Authentication → Providers → Google**
+  - Set redirect URL to `https://date-selector-selector.vercel.app/auth/callback`
+- Set `CREATOR_EMAIL` in Vercel environment variables (defaults to `cykn128@gmail.com` if unset)

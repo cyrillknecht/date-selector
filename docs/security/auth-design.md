@@ -8,7 +8,7 @@ The system has two access models running in parallel:
 
 | Actor | Identity Mechanism | Scope |
 |---|---|---|
-| Creator | Supabase Auth JWT (email + password or magic link) | Full read/write access to all data |
+| Creator | Supabase Auth JWT (email + password, or Google OAuth) | Full read/write access to own flows |
 | Selector | UUID token embedded in the URL | Read published flows + insert selections |
 
 There is no user registration, no invite system, and no role management. The creator account is created once manually via the Supabase dashboard.
@@ -17,20 +17,32 @@ There is no user registration, no invite system, and no role management. The cre
 
 ## Creator Authentication
 
-### Login Flow
+### Login Flow — Email/Password
 
 ```
 1. Creator visits /login
-2. Submits email + password (or requests magic link)
-3. Next.js API calls Supabase Auth → GoTrue
+2. Submits email + password
+3. Next.js calls Supabase Auth → GoTrue
 4. GoTrue validates credentials and returns:
    - access_token (JWT, 1 hour TTL)
    - refresh_token (rotation-based, 7 day TTL)
-5. @supabase/ssr stores both tokens in httpOnly cookies:
-   - sb-access-token
-   - sb-refresh-token
+5. @supabase/ssr stores both tokens in httpOnly cookies
 6. Creator is redirected to /creator/dashboard
 ```
+
+### Login Flow — Google OAuth
+
+```
+1. Creator clicks "Continue with Google" on /login
+2. LoginForm calls supabase.auth.signInWithOAuth({ provider: 'google',
+     options: { redirectTo: window.location.origin + '/auth/callback' } })
+3. Browser redirects to Google consent screen
+4. Google redirects to /auth/callback?code=...
+5. /auth/callback exchanges code for session via createSessionClient()
+6. Tokens stored in httpOnly cookies; creator redirected to /creator/dashboard
+```
+
+Google OAuth must be enabled manually in the Supabase dashboard (Authentication → Providers → Google) with the callback URL set to `{APP_URL}/auth/callback`.
 
 ### Session Management
 

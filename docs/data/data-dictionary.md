@@ -11,16 +11,20 @@ The top-level entity. Represents one complete date selection experience shared w
 | Column | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | `uuid` | NO | `gen_random_uuid()` | PK | Unique identifier |
+| `user_id` | `uuid` | YES | NULL | FK → auth.users ON DELETE CASCADE | Owner (creator). RLS policy enforces `user_id = auth.uid()`. |
 | `title` | `text` | NO | — | NOT NULL, max 100 chars | Internal name for the creator's reference. Not shown to the selector. |
 | `intro_message` | `text` | YES | NULL | max 500 chars | Personal message shown to the selector on the landing page before they start. |
 | `outro_message` | `text` | YES | NULL | max 500 chars | Message shown on the confirmation screen after submission. |
 | `status` | `text` | NO | `'draft'` | CHECK IN ('draft','published','unpublished','archived') | Lifecycle state. Controls selector access and editability. |
 | `token` | `uuid` | YES | NULL | UNIQUE | Secret URL token. Generated on publish. NULL while in draft. |
+| `confirmed_card_id` | `uuid` | YES | NULL | FK → cards.id ON DELETE SET NULL | The card the creator confirmed as the date. NULL until creator confirms. |
+| `confirmed_at` | `timestamptz` | YES | NULL | — | When the creator confirmed the date. |
+| `meeting_point` | `text` | YES | NULL | — | Where to meet (e.g. address, landmark). Shown on the selector's confirmed page. |
 | `created_at` | `timestamptz` | NO | `now()` | — | Creation timestamp (UTC). |
 | `published_at` | `timestamptz` | YES | NULL | — | Timestamp of first publish. Not updated on re-publish. |
 | `archived_at` | `timestamptz` | YES | NULL | — | Timestamp of archive. NULL if not archived. |
 
-**RLS:** Creator full access. Anon SELECT where `status = 'published'` and token matches.
+**RLS:** Creator full access (scoped to `user_id = auth.uid()`). Anon SELECT where `status = 'published'` and token matches.
 
 ---
 
@@ -55,7 +59,8 @@ An individual option within a decision module.
 | `location` | `text` | YES | NULL | max 200 chars | Place name or address. |
 | `price_range` | `text` | YES | NULL | CHECK IN ('€','€€','€€€') | Rough cost indicator. |
 | `mood_tags` | `text[]` | NO | `'{}'` | — | Array of mood labels. E.g. ['cozy', 'romantic', 'indoor'] |
-| `photo_urls` | `text[]` | NO | `'{}'` | — | Ordered array of Supabase Storage CDN URLs. First URL is the cover photo. |
+| `photo_urls` | `text[]` | NO | `'{}'` | — | Ordered array of Supabase Storage CDN URLs. First URL is the cover photo. Supports images and videos (mp4, webm, mov, m4v). |
+| `url` | `text` | YES | NULL | — | Optional external link (restaurant website, Google Maps, etc.). Shown as "Mehr Info" in the expand panel. |
 | `created_at` | `timestamptz` | NO | `now()` | — | Creation timestamp (UTC). |
 
 **RLS:** Creator full access. Anon SELECT via published flow join.

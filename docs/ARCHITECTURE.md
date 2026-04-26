@@ -113,22 +113,17 @@ Components are split by concern, not by route:
 ```
 components/
   creator/
-    FlowBuilder.tsx        # Drag-and-drop module ordering
-    CardEditor.tsx         # Photo upload, fields, tags
-    QuizBuilder.tsx        # Question list editor
-    ShareModal.tsx         # Copy link, QR code
+    PhotoUploader.tsx      # Drag-and-drop photo/video upload to /api/upload
+    ShareModal.tsx         # Copy share link + QR code
 
   selector/
-    FlowController.tsx     # State machine for multi-step flow
-    DecisionStep.tsx       # Card grid or stack for one decision module
+    DecisionStep.tsx       # Card grid with per-card MediaCarousel + expand panel
     QuizStep.tsx           # Animated question sequence
-    CardTile.tsx           # Individual date card (photo, title, tags)
-    ConfirmationScreen.tsx # Final submission moment
-
-  shared/
-    AnimatedPage.tsx       # Framer Motion page wrapper
-    PhotoGallery.tsx       # Swipeable photo viewer
-    MoodTag.tsx            # Visual pill for mood tags
+    ConfirmedDatePage.tsx  # Shown to selector when creator has confirmed the date
+    CountdownTimer.tsx     # Live countdown to the confirmed date (Swiss German labels)
+    CalendarLinks.tsx      # Google Calendar link + .ics download
+    PolaroidBackground.tsx # Decorative background with polaroid images
+    EasterEgg.tsx          # Hidden interaction on the confirmed page
 ```
 
 ### 4.3 State Management
@@ -147,6 +142,9 @@ No global state library is used. State is managed at the appropriate level:
 ```
 flows ──────────────────────────────────────────────┐
   │ id, title, token, status, intro_msg, outro_msg   │
+  │ user_id (FK → auth.users)                        │
+  │ confirmed_card_id (FK → cards), confirmed_at     │
+  │ meeting_point                                    │
   │                                                  │
   ├──< decision_modules                              │
   │      id, flow_id, position, prompt_text          │
@@ -155,7 +153,7 @@ flows ────────────────────────�
   │                id, decision_module_id, position  │
   │                title, description, location      │
   │                price_range, mood_tags[]          │
-  │                photo_urls[]                      │
+  │                photo_urls[], url                 │
   │                                                  │
   └──< quiz_modules                                  │
          id, flow_id, position, title               │
@@ -188,8 +186,13 @@ Managed via the Supabase CLI migration system:
 ```
 supabase/migrations/
   20260426000001_initial_schema.sql
-  20260426000002_add_rls_policies.sql
-  20260426000003_add_storage_bucket.sql
+  20260426000002_rls_policies.sql
+  20260426000003_indexes.sql
+  20260426000004_storage.sql
+  20260426000005_create_storage_bucket.sql   # date-photos bucket, image MIME types
+  20260426000006_confirmed_date.sql          # confirmed_card_id, confirmed_at, meeting_point on flows
+  20260426000007_card_url.sql               # url column on cards
+  20260426000008_security_fixes.sql         # video MIME types + 100 MB limit; user_id on flows + RLS
 ```
 
 Migrations are applied automatically in the production deploy pipeline via `supabase db push`.
@@ -250,12 +253,15 @@ Supabase project: htztpctkkjfyobrbhdld
 
 | Concern | Approach |
 |---|---|
-| Creator auth | Supabase Auth (email + password or magic link); JWT stored in httpOnly cookie via `@supabase/ssr` |
-| Selector access | Cryptographically random UUID token in the URL; validated against the `flows` table on every API call |
-| Photo uploads | Creator-only write access via Supabase Storage RLS; signed upload URLs generated server-side |
+| Creator auth | Supabase Auth — email/password or Google OAuth; JWT stored in httpOnly cookie via `@supabase/ssr` |
+| Google OAuth | Redirect to `/auth/callback` which exchanges the code for a session via `createSessionClient` |
+| Per-creator isolation | `flows.user_id` FK to `auth.users`; RLS policy `user_id = auth.uid()` enforces owner-only access |
+| Selector access | Cryptographically random UUID token in the URL; validated against the `flows` table on every request |
+| Media uploads | Creator-only write; `/api/upload` validates session before proxying to Supabase Storage; bucket enforces 10 MB image / 100 MB video limits and allowed MIME types |
 | API secrets | Stored in GitHub Actions secrets and Vercel env vars; never committed to the repo |
-| RLS | All database tables have RLS enabled; no table is publicly readable/writable without explicit policy |
-| Draft flows | `status = 'draft'` flows are invisible to anon/selector RLS policies; only the creator can read them |
+| RLS | All database tables have RLS enabled; service role bypasses RLS — all creator Server Actions call `requireAuth()` first |
+| Draft flows | `status = 'draft'` flows are invisible to anon/selector RLS policies; only the owner can read them |
+| Submission guard | `submitSelection` explicitly checks `status = 'published'` before inserting — service role bypasses RLS so this is enforced at the application layer |
 
 ---
 
