@@ -283,7 +283,17 @@ All significant technology choices are documented in the `/docs/adr/` directory:
 
 ---
 
-## 9. Full Documentation Index
+## 9. Operational Guides
+
+| Document | Description |
+|---|---|
+| [Redeployment Guide](REDEPLOYMENT.md) | Step-by-step: spin up a fresh instance from scratch |
+| [Platform Migration](PLATFORM_MIGRATION.md) | How to swap Vercel, Supabase, Auth, Storage, or Email for alternatives |
+| [Commercial Roadmap](COMMERCIAL_ROADMAP.md) | Stripe billing, open sign-up, and what it takes to go commercial |
+
+---
+
+## 10. Full Documentation Index
 
 ### C4 Diagrams
 | Document | Description |
