@@ -8,11 +8,15 @@
 erDiagram
   flows {
     uuid id PK
+    uuid user_id FK "owner; references auth.users"
     text title
     text intro_message
     text outro_message
     text status "draft | published | unpublished | archived"
     uuid token UK "null until published"
+    uuid confirmed_card_id FK "null until creator confirms"
+    timestamptz confirmed_at
+    text meeting_point
     timestamptz created_at
     timestamptz published_at
     timestamptz archived_at
@@ -37,6 +41,7 @@ erDiagram
     text price_range "€ | €€ | €€€"
     text[] mood_tags
     text[] photo_urls
+    text url "optional link (restaurant site, Google Maps, etc.)"
     timestamptz created_at
   }
 

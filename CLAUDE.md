@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+Requires **Node 20+** (use `nvm use 20`).
+
 ```bash
 pnpm dev                  # local dev server (localhost:3000)
 pnpm build                # production build
@@ -85,6 +87,7 @@ All API routes use `withErrorHandler` from `lib/errors.ts`. Throw `AppError` for
 | `VERCEL_ORG_ID` | Vercel team (`team_pUAlfzrb4wJsyPZ5zQspR899`) |
 | `VERCEL_PROJECT_ID` | Vercel project (`prj_nnA2v8ersWQnDJ651F7k0WOl3Qzx`) |
 | `APP_URL` | Server-side share link generation |
+| `CREATOR_EMAIL` | Notification email destination (falls back to `cykn128@gmail.com`) |
 
 ---
 
